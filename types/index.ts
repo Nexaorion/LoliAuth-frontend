@@ -1,0 +1,171 @@
+export interface ApiError {
+  error: string;
+  error_description: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  status: "active" | "disabled" | "suspended";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  verify_code: string;
+}
+
+export interface SendCodeRequest {
+  email: string;
+}
+
+export interface SendCodeResponse {
+  message: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: "Bearer";
+  expires_in: number;
+}
+
+export interface OAuthClient {
+  client_id: string;
+  app_name: string;
+  redirect_uris: string[];
+  is_confidential: boolean;
+}
+
+export interface OAuthClientCreated extends OAuthClient {
+  client_secret: string;
+}
+
+export interface CreateClientRequest {
+  app_name: string;
+  redirect_uris: string[];
+  allowed_scopes?: string[];
+  allowed_grant_types?: string[];
+  is_confidential?: boolean;
+}
+
+export interface AuthorizeParams {
+  response_type: "code";
+  client_id: string;
+  redirect_uri: string;
+  scope?: string;
+  state: string;
+  code_challenge: string;
+  code_challenge_method: "S256";
+}
+
+export interface AuthorizeRedirectResponse {
+  redirect_uri: string;
+}
+
+export interface AuthorizeConsentResponse {
+  consent_required: true;
+  client_name: string;
+  scopes: string[];
+  state: string;
+}
+
+export type AuthorizeResponse =
+  | AuthorizeRedirectResponse
+  | AuthorizeConsentResponse;
+
+export interface ConsentRequest {
+  client_id: string;
+  redirect_uri: string;
+  scope?: string;
+  state: string;
+  code_challenge: string;
+  code_challenge_method: "S256";
+  approved: boolean;
+}
+
+export interface KycStartResponse {
+  verify_token: string;
+  h5_url: string;
+}
+
+export interface KycRecord {
+  id: string;
+  status: "pending" | "success" | "failed" | "expired";
+  id_name?: string;
+  id_number?: string;
+  score?: number;
+  liveness_score?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KycStatus {
+  status: "none" | "pending" | "success" | "failed" | "expired";
+  id_name?: string;
+  id_number?: string;
+  score?: number;
+  liveness_score?: number;
+  attempts_remaining: number;
+  verified_at?: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  status: "active" | "disabled" | "suspended";
+  role: "user" | "admin";
+  kyc_attempts_remaining: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminClient {
+  id: string;
+  client_id: string;
+  app_name: string;
+  redirect_uris: string[];
+  allowed_scopes: string[];
+  allowed_grant_types: string[];
+  is_confidential: boolean;
+  status: "pending" | "active" | "rejected" | "suspended";
+  owner_id: string;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string;
+  action: string;
+  ip_address: string;
+  created_at: string;
+}
+
+export interface UpdateUserRequest {
+  status?: "active" | "disabled" | "suspended";
+  role?: "user" | "admin";
+}
+
+export interface UpdateClientStatusRequest {
+  status: "pending" | "active" | "rejected" | "suspended";
+}
+
+export interface KycAttemptsResponse {
+  user_id: string;
+  delta?: number;
+  attempts_remaining: number;
+}
