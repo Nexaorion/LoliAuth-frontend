@@ -153,6 +153,7 @@ export interface AdminUser {
   email: string;
   status: "active" | "disabled" | "suspended";
   role: "user" | "admin";
+  kyc_status: "none" | "pending" | "success" | "failed" | "expired";
   kyc_attempts_remaining: number;
   created_at: string;
   updated_at: string;

@@ -13,12 +13,13 @@ import {
   Popconfirm,
   Modal,
   Form,
+  Tooltip,
 } from "antd";
 import { SearchOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { getUsers, updateUser, deleteUser } from "@/lib/api/admin";
-import type { AdminUser, UpdateUserRequest } from "@/types";
+import { getUsers, updateUser, deleteUser, getAdminKycStatus } from "@/lib/api/admin";
+import type { AdminUser, UpdateUserRequest, KycStatus } from "@/types";
 
 const { Title } = Typography;
 
@@ -46,6 +47,14 @@ const roleMap: Record<string, { color: string; text: string }> = {
   admin: { color: "purple", text: "管理员" },
 };
 
+const kycStatusMap: Record<string, { color: string; text: string }> = {
+  none: { color: "default", text: "未认证" },
+  pending: { color: "processing", text: "认证中" },
+  success: { color: "success", text: "已实名" },
+  failed: { color: "error", text: "认证失败" },
+  expired: { color: "warning", text: "已过期" },
+};
+
 export default function AdminUsersPage() {
   const { message } = App.useApp();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -57,6 +66,7 @@ export default function AdminUsersPage() {
   const [status, setStatus] = useState("");
   const [role, setRole] = useState("");
   const [editModal, setEditModal] = useState<AdminUser | null>(null);
+  const [kycCache, setKycCache] = useState<Record<string, KycStatus>>({});
   const [editLoading, setEditLoading] = useState(false);
   const [form] = Form.useForm();
 
@@ -138,6 +148,38 @@ export default function AdminUsersPage() {
       title: "KYC 次数",
       dataIndex: "kyc_attempts_remaining",
       key: "kyc_attempts_remaining",
+    },
+    {
+      title: "实名状态",
+      dataIndex: "kyc_status",
+      key: "kyc_status",
+      width: 120,
+      render: (s: string, record: AdminUser) => {
+        const cfg = kycStatusMap[s] || { color: "default", text: s };
+        if (s === "success") {
+          const cached = kycCache[record.id];
+          const tooltipTitle = cached
+            ? `姓名：${cached.id_name || "—"}\n身份证：${cached.id_number || "—"}`
+            : "加载中...";
+          return (
+            <Tooltip
+              title={<span style={{ whiteSpace: "pre-line" }}>{tooltipTitle}</span>}
+              onOpenChange={(open) => {
+                if (open && !kycCache[record.id]) {
+                  getAdminKycStatus(record.id).then((kycData) => {
+                    setKycCache((prev) => ({ ...prev, [record.id]: kycData }));
+                  }).catch(() => {
+                    // ignore
+                  });
+                }
+              }}
+            >
+              <Tag color={cfg.color}>{cfg.text}</Tag>
+            </Tooltip>
+          );
+        }
+        return <Tag color={cfg.color}>{cfg.text}</Tag>;
+      },
     },
     {
       title: "创建时间",

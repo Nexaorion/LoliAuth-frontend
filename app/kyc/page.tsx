@@ -5,7 +5,6 @@ import {
   Typography,
   Button,
   Descriptions,
-  Table,
   Tag,
   App,
   Spin,
@@ -23,10 +22,9 @@ import {
   ExclamationCircleOutlined,
   InfoCircleOutlined,
 } from "@ant-design/icons";
-import type { ColumnsType } from "antd/es/table";
 import AppLayout from "@/components/layout/AppLayout";
-import { startKyc, verifyKyc, getKycStatus, getKycRecords } from "@/lib/api/kyc";
-import type { KycStatus, KycRecord } from "@/types";
+import { startKyc, verifyKyc, getKycStatus } from "@/lib/api/kyc";
+import type { KycStatus } from "@/types";
 import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
 
@@ -92,7 +90,6 @@ const statusConfig: Record<
 export default function KycPage() {
   const { message, modal } = App.useApp();
   const [status, setStatus] = useState<KycStatus | null>(null);
-  const [records, setRecords] = useState<KycRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
 
@@ -109,9 +106,8 @@ export default function KycPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, r] = await Promise.all([getKycStatus(), getKycRecords()]);
+      const s = await getKycStatus();
       setStatus(s);
-      setRecords(r);
       return s;
     } catch {
       message.error("加载 KYC 数据失败");
@@ -124,9 +120,8 @@ export default function KycPage() {
   // 后台静默刷新，不触发全页 loading（避免 Modal 被销毁）
   const refreshData = useCallback(async () => {
     try {
-      const [s, r] = await Promise.all([getKycStatus(), getKycRecords()]);
+      const s = await getKycStatus();
       setStatus(s);
-      setRecords(r);
       return s;
     } catch {
       return null;
@@ -285,53 +280,26 @@ export default function KycPage() {
     closeVerifyModal();
   };
 
-  const remainingTime = useCallback(() => {
-    const saved = loadKycSession();
-    if (!saved) return null;
-    const remaining = KYC_SESSION_MAX_AGE - (Date.now() - saved.createdAt);
-    if (remaining <= 0) return null;
-    const hours = Math.floor(remaining / (1000 * 60 * 60));
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours} 小时 ${minutes} 分钟`;
-  }, []);
-
-  const recordColumns: ColumnsType<KycRecord> = [
-    {
-      title: "状态",
-      dataIndex: "status",
-      key: "status",
-      render: (s: string) => {
-        const cfg = statusConfig[s] || { color: "default", text: s };
-        return <Tag color={cfg.color}>{cfg.text}</Tag>;
-      },
-    },
-    { title: "姓名", dataIndex: "id_name", key: "id_name", render: (v: string) => v || "—" },
-    {
-      title: "身份证号",
-      dataIndex: "id_number",
-      key: "id_number",
-      render: (v: string) => v || "—",
-    },
-    {
-      title: "分数",
-      dataIndex: "score",
-      key: "score",
-      render: (v: number) => (v != null ? v.toFixed(2) : "—"),
-    },
-    {
-      title: "失败原因",
-      dataIndex: "fail_reason",
-      key: "fail_reason",
-      ellipsis: true,
-      render: (v: string) => v || "—",
-    },
-    {
-      title: "时间",
-      dataIndex: "created_at",
-      key: "created_at",
-      render: (v: string) => new Date(v).toLocaleString("zh-CN"),
-    },
-  ];
+  const [remainingTimeStr, setRemainingTimeStr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!modalOpen) {
+      setRemainingTimeStr(null);
+      return;
+    }
+    const update = () => {
+      const saved = loadKycSession();
+      if (!saved) { setRemainingTimeStr(null); return; }
+      const remaining = KYC_SESSION_MAX_AGE - (Date.now() - saved.createdAt);
+      if (remaining <= 0) { setRemainingTimeStr(null); return; }
+      const hours = Math.floor(remaining / (1000 * 60 * 60));
+      const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+      setRemainingTimeStr(`${hours} 小时 ${minutes} 分钟 ${seconds} 秒`);
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [modalOpen]);
 
   if (loading) {
     return (
@@ -506,9 +474,9 @@ export default function KycPage() {
                   <LoadingOutlined spin />
                   <Text type="secondary">正在等待认证结果...</Text>
                 </Space>
-                {remainingTime() && (
+                {remainingTimeStr && (
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    剩余有效时间：{remainingTime()}
+                    剩余有效时间：{remainingTimeStr}
                   </Text>
                 )}
               </Space>
@@ -517,16 +485,6 @@ export default function KycPage() {
         )}
       </Modal>
 
-      <Title level={4} style={{ marginTop: 32 }}>
-        认证记录
-      </Title>
-      <Table
-        columns={recordColumns}
-        dataSource={records}
-        rowKey="id"
-        pagination={false}
-        style={{ marginTop: 8 }}
-      />
     </AppLayout>
   );
 }
