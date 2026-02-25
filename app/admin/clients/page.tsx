@@ -118,6 +118,23 @@ export default function AdminClientsPage() {
       },
     },
     {
+      title: "允许的 Scope",
+      dataIndex: "allowed_scopes",
+      key: "allowed_scopes",
+      render: (scopes: string[]) => (
+        <Space size={[0, 4]} wrap>
+          {scopes?.map((s) => {
+            const isSensitive = s === "realname" || s === "real_id_number";
+            return (
+              <Tag key={s} color={isSensitive ? "orange" : "blue"}>
+                {s}
+              </Tag>
+            );
+          })}
+        </Space>
+      ),
+    },
+    {
       title: "创建时间",
       dataIndex: "created_at",
       key: "created_at",

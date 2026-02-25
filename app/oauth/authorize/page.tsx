@@ -13,7 +13,11 @@ import {
   Space,
   Tag,
 } from "antd";
-import { CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ExclamationCircleOutlined,
+} from "@ant-design/icons";
 import { authorize, consent } from "@/lib/api/oauth";
 import type { AuthorizeConsentResponse } from "@/types";
 import type { AxiosError } from "axios";
@@ -25,6 +29,8 @@ const SCOPE_LABELS: Record<string, string> = {
   openid: "获取你的用户标识",
   profile: "获取你的个人资料",
   email: "获取你的邮箱地址",
+  realname: "获取你的实名认证姓名",
+  real_id_number: "获取你的身份证号码",
 };
 
 function AuthorizeContent() {
@@ -150,12 +156,20 @@ function AuthorizeContent() {
 
         <List
           dataSource={consentData.scopes}
-          renderItem={(scope) => (
-            <List.Item>
-              <Tag color="blue">{scope}</Tag>
-              <Text>{SCOPE_LABELS[scope] || scope}</Text>
-            </List.Item>
-          )}
+          renderItem={(scope) => {
+            const isSensitive = scope === "realname" || scope === "real_id_number";
+            return (
+              <List.Item>
+                <Tag color={isSensitive ? "orange" : "blue"}>
+                  {isSensitive && <ExclamationCircleOutlined style={{ marginRight: 4 }} />}
+                  {scope}
+                </Tag>
+                <Text type={isSensitive ? "warning" : undefined}>
+                  {SCOPE_LABELS[scope] || scope}
+                </Text>
+              </List.Item>
+            );
+          }}
           style={{ marginBottom: 24 }}
         />
 

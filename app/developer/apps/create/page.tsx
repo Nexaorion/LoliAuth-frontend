@@ -26,6 +26,8 @@ const SCOPE_OPTIONS = [
   { label: "openid", value: "openid" },
   { label: "profile", value: "profile" },
   { label: "email", value: "email" },
+  { label: "realname（实名姓名）", value: "realname" },
+  { label: "real_id_number（身份证号码）", value: "real_id_number" },
 ];
 
 const GRANT_TYPE_OPTIONS = [
