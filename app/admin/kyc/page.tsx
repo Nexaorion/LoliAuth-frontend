@@ -122,6 +122,19 @@ export default function AdminKycPage() {
       render: (v: number) => (v != null ? v.toFixed(2) : "—"),
     },
     {
+      title: "失败原因",
+      dataIndex: "fail_reason",
+      key: "fail_reason",
+      ellipsis: true,
+      render: (v: string) => v || "—",
+    },
+    {
+      title: "失败分类",
+      dataIndex: "fail_category",
+      key: "fail_category",
+      render: (v: string) => v ? <Tag>{v}</Tag> : "—",
+    },
+    {
       title: "时间",
       dataIndex: "created_at",
       key: "created_at",
@@ -162,6 +175,21 @@ export default function AdminKycPage() {
             {status.id_number && (
               <Descriptions.Item label="身份证号">
                 {status.id_number}
+              </Descriptions.Item>
+            )}
+            {status.fail_reason && (
+              <Descriptions.Item label="失败原因">
+                {status.fail_reason}
+              </Descriptions.Item>
+            )}
+            {status.fail_category && (
+              <Descriptions.Item label="失败分类">
+                <Tag>{status.fail_category}</Tag>
+              </Descriptions.Item>
+            )}
+            {status.baidu_error_code && (
+              <Descriptions.Item label="百度错误码">
+                {status.baidu_error_code}
               </Descriptions.Item>
             )}
             <Descriptions.Item label="剩余认证次数">

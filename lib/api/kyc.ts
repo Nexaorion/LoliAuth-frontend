@@ -6,6 +6,11 @@ export async function startKyc(): Promise<KycStartResponse> {
   return res.data;
 }
 
+export async function verifyKyc(): Promise<KycRecord> {
+  const res = await http.post<KycRecord>("/api/v1/kyc/verify");
+  return res.data;
+}
+
 export async function queryKyc(verifyToken: string): Promise<KycRecord> {
   const res = await http.post<KycRecord>("/api/v1/kyc/query", {
     verify_token: verifyToken,

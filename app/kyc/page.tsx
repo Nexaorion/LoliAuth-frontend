@@ -23,7 +23,7 @@ import {
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AppLayout from "@/components/layout/AppLayout";
-import { startKyc, queryKyc, getKycStatus, getKycRecords } from "@/lib/api/kyc";
+import { startKyc, verifyKyc, getKycStatus, getKycRecords } from "@/lib/api/kyc";
 import type { KycStatus, KycRecord } from "@/types";
 import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
@@ -96,9 +96,9 @@ export default function KycPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [h5Url, setH5Url] = useState<string | null>(null);
-  const [verifyToken, setVerifyToken] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
   const [pollResult, setPollResult] = useState<"idle" | "polling" | "success" | "failed">("idle");
+  const [failReason, setFailReason] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeCheckedRef = useRef(false);
 
@@ -130,11 +130,11 @@ export default function KycPage() {
   }, []);
 
   const openVerifyModal = useCallback(
-    (url: string, token: string) => {
+    (url: string) => {
       setH5Url(url);
-      setVerifyToken(token);
       setModalOpen(true);
       setPollResult("polling");
+      setFailReason(null);
       setPolling(true);
     },
     []
@@ -148,6 +148,7 @@ export default function KycPage() {
     setPolling(false);
     setModalOpen(false);
     setPollResult("idle");
+    setFailReason(null);
   }, []);
 
   const onVerifySuccess = useCallback(() => {
@@ -157,7 +158,7 @@ export default function KycPage() {
     refreshData();
   }, [closeVerifyModal, message, refreshData]);
 
-  const onVerifyFailed = useCallback(() => {
+  const onVerifyFailed = useCallback((reason?: string) => {
     clearKycSession();
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -165,33 +166,34 @@ export default function KycPage() {
     }
     setPolling(false);
     setPollResult("failed");
+    setFailReason(reason || null);
     refreshData();
   }, [refreshData]);
 
   const doPoll = useCallback(
-    async (token: string) => {
+    async () => {
       try {
-        const record = await queryKyc(token);
+        const record = await verifyKyc();
         if (record.status === "success") {
           onVerifySuccess();
         } else if (record.status === "failed" || record.status === "expired") {
-          onVerifyFailed();
+          onVerifyFailed(record.fail_reason);
         }
         // pending → 继续轮询
       } catch {
-        // 网络异常不视为失败，继续轮询
+        // 网络异常或 404 不视为失败，继续轮询
       }
     },
     [onVerifySuccess, onVerifyFailed]
   );
 
   useEffect(() => {
-    if (polling && verifyToken) {
+    if (polling) {
       if (pollingRef.current) clearInterval(pollingRef.current);
 
-      // 不立即轮询：给用户留出扫码时间，避免后端还没收到百度回调就返回 failed
+      // 不立即轮询：给用户留出扫码时间，避兎后端还没收到百度回调就返回 failed
       pollingRef.current = setInterval(() => {
-        doPoll(verifyToken);
+        doPoll();
       }, POLL_INTERVAL);
     }
 
@@ -201,7 +203,7 @@ export default function KycPage() {
         pollingRef.current = null;
       }
     };
-  }, [polling, verifyToken, doPoll]);
+  }, [polling, doPoll]);
   useEffect(() => {
     fetchData().then((kycStatus) => {
       if (resumeCheckedRef.current) return;
@@ -222,7 +224,7 @@ export default function KycPage() {
             okText: "继续认证",
             cancelText: "放弃",
             onOk() {
-              openVerifyModal(saved.h5Url, saved.verifyToken);
+              openVerifyModal(saved.h5Url);
             },
             onCancel() {
               clearKycSession();
@@ -245,7 +247,7 @@ export default function KycPage() {
         createdAt: Date.now(),
       };
       saveKycSession(session);
-      openVerifyModal(res.h5_url, res.verify_token);
+      openVerifyModal(res.h5_url);
       message.info("请使用手机扫描二维码完成认证");
     } catch (err) {
       const axiosErr = err as AxiosError<ApiError>;
@@ -303,6 +305,13 @@ export default function KycPage() {
       render: (v: number) => (v != null ? v.toFixed(2) : "—"),
     },
     {
+      title: "失败原因",
+      dataIndex: "fail_reason",
+      key: "fail_reason",
+      ellipsis: true,
+      render: (v: string) => v || "—",
+    },
+    {
       title: "时间",
       dataIndex: "created_at",
       key: "created_at",
@@ -349,6 +358,11 @@ export default function KycPage() {
                   : "—"}
               </Descriptions.Item>
             </>
+          )}
+          {status.status === "failed" && status.fail_reason && (
+            <Descriptions.Item label="失败原因">
+              {status.fail_reason}
+            </Descriptions.Item>
           )}
           <Descriptions.Item label="剩余认证次数">
             {status.attempts_remaining}
@@ -421,9 +435,11 @@ export default function KycPage() {
               认证失败
             </Title>
             <Text type="secondary">
-              {status && status.attempts_remaining > 0
-                ? "本次认证未通过，您可以重新发起认证。"
-                : "本次认证未通过，认证次数已用完，如需重试请联系管理员。"}
+              {failReason
+                ? failReason
+                : status && status.attempts_remaining > 0
+                  ? "本次认证未通过，您可以重新发起认证。"
+                  : "本次认证未通过，认证次数已用完，如需重试请联系管理员。"}
             </Text>
           </div>
         ) : pollResult === "success" ? (

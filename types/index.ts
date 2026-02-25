@@ -102,6 +102,25 @@ export interface KycStartResponse {
   h5_url: string;
 }
 
+export type KycFailCategory =
+  | "liveness_failed"
+  | "face_quality_issue"
+  | "face_occlusion"
+  | "id_mismatch"
+  | "environment_issue"
+  | "user_action_required"
+  | "timeout"
+  | "security_risk"
+  | "token_invalid"
+  | "rate_limit"
+  | "video_issue"
+  | "param_error"
+  | "not_started"
+  | "processing"
+  | "not_completed"
+  | "result_expired"
+  | "service_error";
+
 export interface KycRecord {
   id: string;
   status: "pending" | "success" | "failed" | "expired";
@@ -109,6 +128,9 @@ export interface KycRecord {
   id_number?: string;
   score?: number;
   liveness_score?: number;
+  fail_reason?: string;
+  fail_category?: KycFailCategory;
+  baidu_error_code?: number;
   created_at: string;
   updated_at: string;
 }
@@ -121,6 +143,9 @@ export interface KycStatus {
   liveness_score?: number;
   attempts_remaining: number;
   verified_at?: string;
+  fail_reason?: string;
+  fail_category?: KycFailCategory;
+  baidu_error_code?: number;
 }
 
 export interface AdminUser {
