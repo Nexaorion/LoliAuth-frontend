@@ -13,6 +13,7 @@ import {
   Alert,
   Space,
   Modal,
+  Checkbox,
 } from "antd";
 import {
   SafetyCertificateOutlined,
@@ -20,6 +21,7 @@ import {
   CheckCircleFilled,
   CloseCircleFilled,
   ExclamationCircleOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AppLayout from "@/components/layout/AppLayout";
@@ -28,7 +30,7 @@ import type { KycStatus, KycRecord } from "@/types";
 import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
 
-const { Title, Text } = Typography;
+const { Title, Text, Link } = Typography;
 
 const KYC_SESSION_KEY = "kyc_session";
 const KYC_SESSION_MAX_AGE = 3 * 24 * 60 * 60 * 1000;
@@ -99,6 +101,8 @@ export default function KycPage() {
   const [polling, setPolling] = useState(false);
   const [pollResult, setPollResult] = useState<"idle" | "polling" | "success" | "failed">("idle");
   const [failReason, setFailReason] = useState<string | null>(null);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeCheckedRef = useRef(false);
 
@@ -266,6 +270,16 @@ export default function KycPage() {
     }
   };
 
+  const handleStartClick = () => {
+    setPrivacyAgreed(false);
+    setConfirmModalOpen(true);
+  };
+
+  const handleConfirmStart = () => {
+    setConfirmModalOpen(false);
+    handleStart();
+  };
+
   const handleModalClose = () => {
     // Don't clear session — user may come back later
     closeVerifyModal();
@@ -385,13 +399,46 @@ export default function KycPage() {
                 type="primary"
                 icon={<SafetyCertificateOutlined />}
                 loading={starting}
-                onClick={handleStart}
+                onClick={handleStartClick}
               >
                 开始认证
               </Button>
             )}
           </Space>
         )}
+
+      <Modal
+        title={
+          <Space>
+            <InfoCircleOutlined style={{ color: "#1677ff" }} />
+            是否确认开始实名认证?
+          </Space>
+        }
+        open={confirmModalOpen}
+        onCancel={() => setConfirmModalOpen(false)}
+        onOk={handleConfirmStart}
+        okText="确认"
+        cancelText="取消"
+        okButtonProps={{ disabled: !privacyAgreed, loading: starting }}
+        width={480}
+      >
+        <p style={{ marginBottom: 16 }}>
+          您即将开始 LoliAuth 统一认证系统的实名认证流程，北京百度网讯科技有限公司将为您提供实名认证核验服务。
+        </p>
+        <Checkbox
+          checked={privacyAgreed}
+          onChange={(e) => setPrivacyAgreed(e.target.checked)}
+        >
+          我已阅读并同意
+          <Link
+            href="https://ai.baidu.com/ai-doc/FACE/wmimjmo95#h5%E5%AE%9E%E5%90%8D%E8%AE%A4%E8%AF%81%E7%94%A8%E6%88%B7%E9%9A%90%E7%A7%81%E5%8D%8F%E8%AE%AE"
+            target="_blank"
+            onClick={(e) => e.stopPropagation()}
+          >
+            《H5实名认证用户隐私协议》
+          </Link>
+        </Checkbox>
+      </Modal>
 
       <Modal
         title="实名认证"
@@ -410,7 +457,7 @@ export default function KycPage() {
                         type="primary"
                         onClick={() => {
                           closeVerifyModal();
-                          handleStart();
+                          handleStartClick();
                         }}
                       >
                         重新认证
