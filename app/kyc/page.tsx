@@ -117,6 +117,18 @@ export default function KycPage() {
     }
   }, [message]);
 
+  // 后台静默刷新，不触发全页 loading（避免 Modal 被销毁）
+  const refreshData = useCallback(async () => {
+    try {
+      const [s, r] = await Promise.all([getKycStatus(), getKycRecords()]);
+      setStatus(s);
+      setRecords(r);
+      return s;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const openVerifyModal = useCallback(
     (url: string, token: string) => {
       setH5Url(url);
@@ -142,8 +154,8 @@ export default function KycPage() {
     clearKycSession();
     closeVerifyModal();
     message.success("实名认证成功！");
-    fetchData();
-  }, [closeVerifyModal, message, fetchData]);
+    refreshData();
+  }, [closeVerifyModal, message, refreshData]);
 
   const onVerifyFailed = useCallback(() => {
     clearKycSession();
@@ -153,8 +165,8 @@ export default function KycPage() {
     }
     setPolling(false);
     setPollResult("failed");
-    fetchData();
-  }, [fetchData]);
+    refreshData();
+  }, [refreshData]);
 
   const doPoll = useCallback(
     async (token: string) => {
@@ -162,10 +174,12 @@ export default function KycPage() {
         const record = await queryKyc(token);
         if (record.status === "success") {
           onVerifySuccess();
-        } else if (record.status === "failed") {
+        } else if (record.status === "failed" || record.status === "expired") {
           onVerifyFailed();
         }
+        // pending → 继续轮询
       } catch {
+        // 网络异常不视为失败，继续轮询
       }
     },
     [onVerifySuccess, onVerifyFailed]
@@ -175,8 +189,7 @@ export default function KycPage() {
     if (polling && verifyToken) {
       if (pollingRef.current) clearInterval(pollingRef.current);
 
-      doPoll(verifyToken);
-
+      // 不立即轮询：给用户留出扫码时间，避免后端还没收到百度回调就返回 failed
       pollingRef.current = setInterval(() => {
         doPoll(verifyToken);
       }, POLL_INTERVAL);
@@ -376,16 +389,20 @@ export default function KycPage() {
                 <Button key="close" onClick={handleModalClose}>
                   关闭
                 </Button>,
-                <Button
-                  key="retry"
-                  type="primary"
-                  onClick={() => {
-                    closeVerifyModal();
-                    handleStart();
-                  }}
-                >
-                  重新认证
-                </Button>,
+                ...(status && status.attempts_remaining > 0
+                  ? [
+                      <Button
+                        key="retry"
+                        type="primary"
+                        onClick={() => {
+                          closeVerifyModal();
+                          handleStart();
+                        }}
+                      >
+                        重新认证
+                      </Button>,
+                    ]
+                  : []),
               ]
             : [
                 <Button key="close" onClick={handleModalClose}>
@@ -404,7 +421,9 @@ export default function KycPage() {
               认证失败
             </Title>
             <Text type="secondary">
-              本次认证未通过，您可以重新发起认证。
+              {status && status.attempts_remaining > 0
+                ? "本次认证未通过，您可以重新发起认证。"
+                : "本次认证未通过，认证次数已用完，如需重试请联系管理员。"}
             </Text>
           </div>
         ) : pollResult === "success" ? (
