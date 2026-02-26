@@ -12,8 +12,23 @@ import {
   Modal,
   Space,
   Alert,
+  Row,
+  Col,
+  Card,
+  List,
+  Tag,
+  Divider,
 } from "antd";
-import { MinusCircleOutlined, PlusOutlined, CopyOutlined } from "@ant-design/icons";
+import {
+  MinusCircleOutlined,
+  PlusOutlined,
+  CopyOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ExclamationCircleOutlined,
+  AppstoreOutlined,
+  EyeOutlined,
+} from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { createClient } from "@/lib/api/developer";
@@ -36,13 +51,182 @@ const GRANT_TYPE_OPTIONS = [
   { label: "client_credentials", value: "client_credentials" },
 ];
 
+const SCOPE_LABELS: Record<string, string> = {
+  openid: "获取你的用户标识",
+  profile: "获取你的个人资料",
+  email: "获取你的邮箱地址",
+  realname: "获取你的实名认证姓名",
+  real_id_number: "获取你的身份证号码",
+};
+
+interface ConsentPreviewProps {
+  appName: string;
+  scopes: string[];
+}
+
+function ConsentPreview({ appName, scopes }: ConsentPreviewProps) {
+  const displayName = appName?.trim() || "你的应用名称";
+  const displayScopes = scopes?.length ? scopes : ["openid"];
+
+  return (
+    <div style={{ position: "sticky", top: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 12,
+          color: "#8c8c8c",
+          fontSize: 13,
+        }}
+      >
+        <EyeOutlined />
+        <span>授权同意屏幕预览</span>
+      </div>
+      <div
+        style={{
+          background: "#f5f5f5",
+          borderRadius: 12,
+          padding: 20,
+          minHeight: 320,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Card
+          style={{
+            width: "100%",
+            maxWidth: 380,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+            borderRadius: 12,
+          }}
+          styles={{ body: { padding: "28px 24px 24px" } }}
+        >
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 12,
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 14px",
+              }}
+            >
+              <AppstoreOutlined style={{ fontSize: 24, color: "#fff" }} />
+            </div>
+            <Title level={5} style={{ marginBottom: 4 }}>
+              授权请求
+            </Title>
+            <Paragraph style={{ margin: 0, color: "#595959" }}>
+              <Text strong>{displayName}</Text> 请求获取以下权限：
+            </Paragraph>
+          </div>
+
+          <Divider style={{ margin: "12px 0" }} />
+
+          {/* Scope list */}
+          <List
+            dataSource={displayScopes}
+            renderItem={(scope) => {
+              const isSensitive =
+                scope === "realname" || scope === "real_id_number";
+              return (
+                <List.Item style={{ padding: "8px 0", border: "none" }}>
+                  <Space>
+                    <Tag
+                      color={isSensitive ? "orange" : "blue"}
+                      style={{ margin: 0 }}
+                    >
+                      {isSensitive && (
+                        <ExclamationCircleOutlined
+                          style={{ marginRight: 4 }}
+                        />
+                      )}
+                      {scope}
+                    </Tag>
+                    <Text
+                      type={isSensitive ? "warning" : undefined}
+                      style={{ fontSize: 13 }}
+                    >
+                      {SCOPE_LABELS[scope] || scope}
+                    </Text>
+                  </Space>
+                </List.Item>
+              );
+            }}
+            style={{ marginBottom: 20 }}
+          />
+
+          <Divider style={{ margin: "0 0 16px" }} />
+
+          {/* Action buttons */}
+          <Space
+            style={{ width: "100%", justifyContent: "center" }}
+            size="middle"
+          >
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              size="large"
+              disabled
+            >
+              同意授权
+            </Button>
+            <Button
+              danger
+              icon={<CloseCircleOutlined />}
+              size="large"
+              disabled
+            >
+              拒绝
+            </Button>
+          </Space>
+
+          <div style={{ textAlign: "center", marginTop: 12 }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              由 LoliAuth 提供授权保护
+            </Text>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function CreateAppPage() {
   const router = useRouter();
   const { message } = App.useApp();
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [secretModal, setSecretModal] = useState<OAuthClientCreated | null>(
     null
   );
+  const [previewAppName, setPreviewAppName] = useState("");
+  const [previewScopes, setPreviewScopes] = useState<string[]>([
+    "openid",
+    "profile",
+    "email",
+  ]);
+
+  const handleValuesChange = (
+    _: unknown,
+    allValues: {
+      app_name?: string;
+      allowed_scopes?: string[];
+    }
+  ) => {
+    if (allValues.app_name !== undefined) {
+      setPreviewAppName(allValues.app_name);
+    }
+    if (allValues.allowed_scopes !== undefined) {
+      setPreviewScopes(allValues.allowed_scopes ?? []);
+    }
+  };
 
   const onFinish = async (values: {
     app_name: string;
@@ -84,106 +268,119 @@ export default function CreateAppPage() {
   return (
     <AppLayout>
       <Title level={3}>创建应用</Title>
-      <Form
-        layout="vertical"
-        onFinish={onFinish}
-        initialValues={{
-          allowed_scopes: ["openid", "profile", "email"],
-          allowed_grant_types: ["authorization_code", "refresh_token"],
-          is_confidential: true,
-          redirect_uris: [{ uri: "" }],
-        }}
-        style={{ maxWidth: 600, marginTop: 16 }}
-      >
-        <Form.Item
-          name="app_name"
-          label="应用名称"
-          rules={[{ required: true, message: "请输入应用名称" }]}
-        >
-          <Input placeholder="我的应用" />
-        </Form.Item>
+      <Row gutter={[48, 0]} align="top" style={{ marginTop: 16 }}>
+        {/* Form column */}
+        <Col xs={24} lg={13} xl={12}>
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={onFinish}
+            onValuesChange={handleValuesChange}
+            initialValues={{
+              allowed_scopes: ["openid", "profile", "email"],
+              allowed_grant_types: ["authorization_code", "refresh_token"],
+              is_confidential: true,
+              redirect_uris: [{ uri: "" }],
+            }}
+          >
+            <Form.Item
+              name="app_name"
+              label="应用名称"
+              rules={[{ required: true, message: "请输入应用名称" }]}
+            >
+              <Input placeholder="我的应用" />
+            </Form.Item>
 
-        <Form.List
-          name="redirect_uris"
-          rules={[
-            {
-              validator: async (_, uris) => {
-                if (!uris || uris.length < 1) {
-                  return Promise.reject(new Error("至少添加一个回调地址"));
-                }
-              },
-            },
-          ]}
-        >
-          {(fields, { add, remove }, { errors }) => (
-            <>
-              {fields.map((field) => (
-                <Form.Item
-                  key={field.key}
-                  label={field.key === 0 ? "回调地址" : undefined}
-                  required
-                >
-                  <Space align="baseline" style={{ width: "100%" }}>
+            <Form.List
+              name="redirect_uris"
+              rules={[
+                {
+                  validator: async (_, uris) => {
+                    if (!uris || uris.length < 1) {
+                      return Promise.reject(new Error("至少添加一个回调地址"));
+                    }
+                  },
+                },
+              ]}
+            >
+              {(fields, { add, remove }, { errors }) => (
+                <>
+                  {fields.map((field) => (
                     <Form.Item
-                      {...field}
-                      name={[field.name, "uri"]}
-                      rules={[
-                        { required: true, message: "请输入回调地址" },
-                        { type: "url", message: "请输入有效的 URL" },
-                      ]}
-                      noStyle
+                      key={field.key}
+                      label={field.key === 0 ? "回调地址" : undefined}
+                      required
                     >
-                      <Input
-                        placeholder="https://localhost:3000/callback"
-                        style={{ width: 480 }}
-                      />
+                      <Space align="baseline" style={{ width: "100%" }}>
+                        <Form.Item
+                          {...field}
+                          name={[field.name, "uri"]}
+                          rules={[
+                            { required: true, message: "请输入回调地址" },
+                            { type: "url", message: "请输入有效的 URL" },
+                          ]}
+                          noStyle
+                        >
+                          <Input
+                            placeholder="https://localhost:3000/callback"
+                            style={{ width: 360 }}
+                          />
+                        </Form.Item>
+                        {fields.length > 1 && (
+                          <MinusCircleOutlined
+                            onClick={() => remove(field.name)}
+                          />
+                        )}
+                      </Space>
                     </Form.Item>
-                    {fields.length > 1 && (
-                      <MinusCircleOutlined onClick={() => remove(field.name)} />
-                    )}
-                  </Space>
-                </Form.Item>
-              ))}
-              <Form.Item>
-                <Button
-                  type="dashed"
-                  onClick={() => add()}
-                  block
-                  icon={<PlusOutlined />}
-                >
-                  添加回调地址
+                  ))}
+                  <Form.Item>
+                    <Button
+                      type="dashed"
+                      onClick={() => add()}
+                      block
+                      icon={<PlusOutlined />}
+                    >
+                      添加回调地址
+                    </Button>
+                    <Form.ErrorList errors={errors} />
+                  </Form.Item>
+                </>
+              )}
+            </Form.List>
+
+            <Form.Item name="allowed_scopes" label="允许的 Scope">
+              <Checkbox.Group options={SCOPE_OPTIONS} />
+            </Form.Item>
+
+            <Form.Item name="allowed_grant_types" label="允许的授权类型">
+              <Checkbox.Group options={GRANT_TYPE_OPTIONS} />
+            </Form.Item>
+
+            <Form.Item
+              name="is_confidential"
+              label="机密客户端"
+              valuePropName="checked"
+            >
+              <Switch checkedChildren="是" unCheckedChildren="否" />
+            </Form.Item>
+
+            <Form.Item>
+              <Space>
+                <Button type="primary" htmlType="submit" loading={loading}>
+                  创建
                 </Button>
-                <Form.ErrorList errors={errors} />
-              </Form.Item>
-            </>
-          )}
-        </Form.List>
+                <Button onClick={() => router.back()}>取消</Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Col>
 
-        <Form.Item name="allowed_scopes" label="允许的 Scope">
-          <Checkbox.Group options={SCOPE_OPTIONS} />
-        </Form.Item>
-
-        <Form.Item name="allowed_grant_types" label="允许的授权类型">
-          <Checkbox.Group options={GRANT_TYPE_OPTIONS} />
-        </Form.Item>
-
-        <Form.Item
-          name="is_confidential"
-          label="机密客户端"
-          valuePropName="checked"
-        >
-          <Switch checkedChildren="是" unCheckedChildren="否" />
-        </Form.Item>
-
-        <Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              创建
-            </Button>
-            <Button onClick={() => router.back()}>取消</Button>
-          </Space>
-        </Form.Item>
-      </Form>
+        {/* Preview column — desktop only */}
+        <Col xs={0} lg={11} xl={12}>
+          <ConsentPreview appName={previewAppName} scopes={previewScopes} />
+        </Col>
+      </Row>
 
       <Modal
         title="应用创建成功"
