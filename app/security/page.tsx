@@ -8,12 +8,12 @@ import {
   Input,
   Steps,
   Button,
-  Space,
   App,
-  Descriptions,
   Tag,
   Spin,
-  Anchor,
+  Modal,
+  Divider,
+  Space,
 } from "antd";
 import {
   MailOutlined,
@@ -22,6 +22,9 @@ import {
   SafetyCertificateOutlined,
   CheckCircleFilled,
   CloseCircleFilled,
+  ArrowRightOutlined,
+  ExclamationCircleOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
@@ -38,6 +41,15 @@ import type { AxiosError } from "axios";
 import type { ApiError, KycStatus } from "@/types";
 
 const { Title, Text } = Typography;
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  if (local.length <= 2) return `${local[0]}***@${domain}`;
+  const prefix = local.slice(0, 2);
+  const suffix = local.slice(-1);
+  return `${prefix}***${suffix}@${domain}`;
+}
 
 function useCountdown() {
   const [countdown, setCountdown] = useState(0);
@@ -66,68 +78,134 @@ function useCountdown() {
   return { countdown, start };
 }
 
-function EmailSection() {
+interface SecurityRowProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  value: React.ReactNode;
+  action: React.ReactNode;
+  last?: boolean;
+}
+
+function SecurityRow({
+  icon,
+  title,
+  description,
+  value,
+  action,
+  last,
+}: SecurityRowProps) {
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "20px 0",
+          gap: 16,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            minWidth: 220,
+          }}
+        >
+          <span
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: "#f5f0ff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#7c3aed",
+              fontSize: 16,
+              flexShrink: 0,
+            }}
+          >
+            {icon}
+          </span>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14, lineHeight: "22px" }}>
+              {title}
+            </div>
+            <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 2 }}>
+              {description}
+            </div>
+          </div>
+        </div>
+        <div style={{ flex: 1, color: "#595959", fontSize: 14 }}>{value}</div>
+        <div style={{ flexShrink: 0 }}>{action}</div>
+      </div>
+      {!last && <Divider style={{ margin: 0 }} />}
+    </>
+  );
+}
+
+interface EmailModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+function EmailModal({ open, onClose }: EmailModalProps) {
   const { message } = App.useApp();
-  const user = useAuthStore((s) => s.user);
   const loadProfile = useAuthStore((s) => s.loadProfile);
   const [form] = Form.useForm();
   const [step, setStep] = useState(0);
   const [sendingOldCode, setSendingOldCode] = useState(false);
   const [sendingNewCode, setSendingNewCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const oldCodeCountdown = useCountdown();
-  const newCodeCountdown = useCountdown();
+  const oldCountdown = useCountdown();
   const [savedNewEmail, setSavedNewEmail] = useState("");
+
+  const resetAll = useCallback(() => {
+    setStep(0);
+    form.resetFields();
+    setSavedNewEmail("");
+  }, [form]);
+
+  const handleClose = () => {
+    resetAll();
+    onClose();
+  };
 
   const handleSendOldCode = async () => {
     setSendingOldCode(true);
     try {
       await sendOldEmailCode();
       message.success("验证码已发送至你的当前邮箱");
-      oldCodeCountdown.start();
+      oldCountdown.start();
       setStep(1);
     } catch (err) {
       const error = err as AxiosError<ApiError>;
       if (error.response?.status === 429) {
         message.error("发送过于频繁，请等待 60 秒后再试");
       } else {
-        message.error(
-          error.response?.data?.error_description || "发送失败，请稍后重试"
-        );
+        message.error(error.response?.data?.error_description || "发送失败，请稍后重试");
       }
     } finally {
       setSendingOldCode(false);
     }
   };
 
-  const handleStep1 = async (values: {
-    old_code: string;
-    new_email: string;
-  }) => {
+  const handleStep1 = async (values: { old_code: string; new_email: string }) => {
     setSendingNewCode(true);
     try {
-      await sendNewEmailCode({
-        old_code: values.old_code,
-        new_email: values.new_email,
-      });
+      await sendNewEmailCode({ old_code: values.old_code, new_email: values.new_email });
       message.success("验证码已发送至新邮箱");
-      newCodeCountdown.start();
       setSavedNewEmail(values.new_email);
       setStep(2);
     } catch (err) {
       const error = err as AxiosError<ApiError>;
       const status = error.response?.status;
-      if (status === 400) {
-        message.error("旧邮箱验证码无效或已过期");
-      } else if (status === 409) {
-        message.error("新邮箱已被注册");
-      } else if (status === 429) {
-        message.error("发送过于频繁，请等待 60 秒后再试");
-      } else {
-        message.error(
-          error.response?.data?.error_description || "操作失败，请稍后重试"
-        );
-      }
+      if (status === 400) message.error("旧邮箱验证码无效或已过期");
+      else if (status === 409) message.error("新邮箱已被注册");
+      else if (status === 429) message.error("发送过于频繁，请等待 60 秒后再试");
+      else message.error(error.response?.data?.error_description || "操作失败，请稍后重试");
     } finally {
       setSendingNewCode(false);
     }
@@ -136,55 +214,39 @@ function EmailSection() {
   const handleStep2 = async (values: { new_code: string }) => {
     setSubmitting(true);
     try {
-      await changeEmail({
-        new_email: savedNewEmail,
-        new_code: values.new_code,
-      });
+      await changeEmail({ new_email: savedNewEmail, new_code: values.new_code });
       message.success("邮箱修改成功");
-      form.resetFields();
-      setStep(0);
-      setSavedNewEmail("");
       await loadProfile();
+      handleClose();
     } catch (err) {
       const error = err as AxiosError<ApiError>;
       const status = error.response?.status;
-      if (status === 400) {
-        message.error("验证码无效或已过期");
-      } else if (status === 409) {
-        message.error("新邮箱已被注册");
-      } else {
-        message.error(
-          error.response?.data?.error_description || "操作失败，请稍后重试"
-        );
-      }
+      if (status === 400) message.error("验证码无效或已过期");
+      else if (status === 409) message.error("新邮箱已被注册");
+      else message.error(error.response?.data?.error_description || "操作失败，请稍后重试");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const resetAll = () => {
-    setStep(0);
-    form.resetFields();
-    setSavedNewEmail("");
-  };
-
   return (
-    <Card id="email" style={{ marginBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <MailOutlined style={{ fontSize: 20, color: "#7c3aed" }} />
-        <Title level={4} style={{ margin: 0 }}>安全邮箱</Title>
-      </div>
-
-      <Descriptions column={1} style={{ marginBottom: 24 }}>
-        <Descriptions.Item label="当前绑定邮箱">
-          <Text strong>{user?.email ?? "—"}</Text>
-        </Descriptions.Item>
-      </Descriptions>
-
+    <Modal
+      title={
+        <Space>
+          <MailOutlined style={{ color: "#7c3aed" }} />
+          <span>更改安全邮箱</span>
+        </Space>
+      }
+      open={open}
+      onCancel={handleClose}
+      footer={null}
+      width={480}
+      destroyOnClose
+    >
       <Steps
         current={step}
         size="small"
-        style={{ marginBottom: 24 }}
+        style={{ margin: "20px 0 24px" }}
         items={[
           { title: "验证当前邮箱" },
           { title: "填写新邮箱" },
@@ -194,30 +256,26 @@ function EmailSection() {
 
       {step === 0 && (
         <div>
-          <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
-            为了安全起见，更改邮箱需要先验证你的当前邮箱。点击下方按钮发送验证码。
+          <Text type="secondary" style={{ display: "block", marginBottom: 20 }}>
+            为保障账户安全，更改邮箱需先验证你的当前邮箱。点击下方按钮发送验证码。
           </Text>
           <Button
             type="primary"
             loading={sendingOldCode}
-            disabled={oldCodeCountdown.countdown > 0}
+            disabled={oldCountdown.countdown > 0}
             onClick={handleSendOldCode}
             icon={<MailOutlined />}
+            block
           >
-            {oldCodeCountdown.countdown > 0
-              ? `${oldCodeCountdown.countdown} 秒后可重发`
+            {oldCountdown.countdown > 0
+              ? `${oldCountdown.countdown} 秒后可重发`
               : "发送验证码到当前邮箱"}
           </Button>
         </div>
       )}
 
       {step === 1 && (
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleStep1}
-          requiredMark={false}
-        >
+        <Form form={form} layout="vertical" onFinish={handleStep1} requiredMark={false}>
           <Form.Item
             name="old_code"
             label="当前邮箱验证码"
@@ -227,25 +285,22 @@ function EmailSection() {
             ]}
           >
             <Input
-              placeholder="请输入发送到当前邮箱的 6 位验证码"
+              placeholder="请输入 6 位验证码"
               maxLength={6}
               suffix={
                 <Button
                   type="link"
                   size="small"
-                  disabled={oldCodeCountdown.countdown > 0}
+                  disabled={oldCountdown.countdown > 0}
                   loading={sendingOldCode}
                   onClick={handleSendOldCode}
                   style={{ padding: 0 }}
                 >
-                  {oldCodeCountdown.countdown > 0
-                    ? `${oldCodeCountdown.countdown}s`
-                    : "重新发送"}
+                  {oldCountdown.countdown > 0 ? `${oldCountdown.countdown}s` : "重新发送"}
                 </Button>
               }
             />
           </Form.Item>
-
           <Form.Item
             name="new_email"
             label="新邮箱地址"
@@ -254,17 +309,13 @@ function EmailSection() {
               { type: "email", message: "请输入有效的邮箱地址" },
             ]}
           >
-            <Input
-              prefix={<MailOutlined className="text-gray-400" />}
-              placeholder="请输入新的邮箱地址"
-            />
+            <Input prefix={<MailOutlined style={{ color: "#bfbfbf" }} />} placeholder="请输入新的邮箱地址" />
           </Form.Item>
-
-          <Space>
+          <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+            <Button onClick={handleClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={sendingNewCode}>
               下一步
             </Button>
-            <Button onClick={resetAll}>取消</Button>
           </Space>
         </Form>
       )}
@@ -272,9 +323,8 @@ function EmailSection() {
       {step === 2 && (
         <Form layout="vertical" onFinish={handleStep2} requiredMark={false}>
           <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
-            验证码已发送至 <Text strong>{savedNewEmail}</Text>，请查收。
+            验证码已发送至 <Text strong>{savedNewEmail}</Text>，请查收邮件。
           </Text>
-
           <Form.Item
             name="new_code"
             label="新邮箱验证码"
@@ -283,31 +333,39 @@ function EmailSection() {
               { pattern: /^\d{6}$/, message: "验证码为 6 位数字" },
             ]}
           >
-            <Input
-              placeholder="请输入发送到新邮箱的 6 位验证码"
-              maxLength={6}
-            />
+            <Input placeholder="请输入 6 位验证码" maxLength={6} />
           </Form.Item>
-
-          <Space>
+          <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+            <Button onClick={() => setStep(1)}>上一步</Button>
             <Button type="primary" htmlType="submit" loading={submitting}>
               确认更改
             </Button>
-            <Button onClick={resetAll}>取消</Button>
           </Space>
         </Form>
       )}
-    </Card>
+    </Modal>
   );
 }
 
-function PasswordSection() {
+
+interface PasswordModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+function PasswordModal({ open, onClose }: PasswordModalProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [step, setStep] = useState(0);
   const [sendingCode, setSendingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { countdown, start: startCountdown } = useCountdown();
+
+  const handleClose = () => {
+    setStep(0);
+    form.resetFields();
+    onClose();
+  };
 
   const handleSendCode = async () => {
     setSendingCode(true);
@@ -318,66 +376,53 @@ function PasswordSection() {
       setStep(1);
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      if (error.response?.status === 429) {
-        message.error("发送过于频繁，请等待 60 秒后再试");
-      } else {
-        message.error(
-          error.response?.data?.error_description || "发送失败，请稍后重试"
-        );
-      }
+      if (error.response?.status === 429) message.error("发送过于频繁，请等待 60 秒后再试");
+      else message.error(error.response?.data?.error_description || "发送失败，请稍后重试");
     } finally {
       setSendingCode(false);
     }
   };
 
-  const onFinish = async (values: {
-    verify_code: string;
-    new_password: string;
-  }) => {
+  const onFinish = async (values: { verify_code: string; new_password: string }) => {
     setSubmitting(true);
     try {
-      await resetPassword({
-        verify_code: values.verify_code,
-        new_password: values.new_password,
-      });
+      await resetPassword({ verify_code: values.verify_code, new_password: values.new_password });
       message.success("密码修改成功");
-      form.resetFields();
-      setStep(0);
+      handleClose();
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      if (error.response?.status === 400) {
-        message.error("验证码无效或已过期，请重新发送");
-      } else {
-        message.error(
-          error.response?.data?.error_description || "重置失败，请稍后重试"
-        );
-      }
+      if (error.response?.status === 400) message.error("验证码无效或已过期，请重新发送");
+      else message.error(error.response?.data?.error_description || "重置失败，请稍后重试");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Card id="password" style={{ marginBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <KeyOutlined style={{ fontSize: 20, color: "#7c3aed" }} />
-        <Title level={4} style={{ margin: 0 }}>密码</Title>
-      </div>
-
+    <Modal
+      title={
+        <Space>
+          <KeyOutlined style={{ color: "#7c3aed" }} />
+          <span>修改登录密码</span>
+        </Space>
+      }
+      open={open}
+      onCancel={handleClose}
+      footer={null}
+      width={480}
+      destroyOnClose
+    >
       <Steps
         current={step}
         size="small"
-        style={{ marginBottom: 24 }}
-        items={[
-          { title: "发送验证码" },
-          { title: "设置新密码" },
-        ]}
+        style={{ margin: "20px 0 24px" }}
+        items={[{ title: "验证邮箱" }, { title: "设置新密码" }]}
       />
 
       {step === 0 && (
         <div>
-          <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
-            修改密码需要先验证你的邮箱。点击下方按钮，我们将向你的注册邮箱发送一个验证码。
+          <Text type="secondary" style={{ display: "block", marginBottom: 20 }}>
+            修改密码前需验证你的邮箱。点击下方按钮，我们将向你的注册邮箱发送验证码。
           </Text>
           <Button
             type="primary"
@@ -385,6 +430,7 @@ function PasswordSection() {
             disabled={countdown > 0}
             onClick={handleSendCode}
             icon={<MailOutlined />}
+            block
           >
             {countdown > 0 ? `${countdown} 秒后可重发` : "发送验证码"}
           </Button>
@@ -392,12 +438,7 @@ function PasswordSection() {
       )}
 
       {step === 1 && (
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={onFinish}
-          requiredMark={false}
-        >
+        <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false}>
           <Form.Item
             name="verify_code"
             label="邮箱验证码"
@@ -407,7 +448,7 @@ function PasswordSection() {
             ]}
           >
             <Input
-              placeholder="请输入 6 位数字验证码"
+              placeholder="请输入 6 位验证码"
               maxLength={6}
               suffix={
                 <Button
@@ -423,7 +464,6 @@ function PasswordSection() {
               }
             />
           </Form.Item>
-
           <Form.Item
             name="new_password"
             label="新密码"
@@ -433,11 +473,10 @@ function PasswordSection() {
             ]}
           >
             <Input.Password
-              prefix={<LockOutlined className="text-gray-400" />}
+              prefix={<LockOutlined style={{ color: "#bfbfbf" }} />}
               placeholder="请输入新密码（至少 8 位）"
             />
           </Form.Item>
-
           <Form.Item
             name="confirm_password"
             label="确认新密码"
@@ -446,168 +485,224 @@ function PasswordSection() {
               { required: true, message: "请再次输入新密码" },
               ({ getFieldValue }) => ({
                 validator(_, value) {
-                  if (!value || getFieldValue("new_password") === value) {
-                    return Promise.resolve();
-                  }
+                  if (!value || getFieldValue("new_password") === value) return Promise.resolve();
                   return Promise.reject(new Error("两次输入的密码不一致"));
                 },
               }),
             ]}
           >
             <Input.Password
-              prefix={<LockOutlined className="text-gray-400" />}
+              prefix={<LockOutlined style={{ color: "#bfbfbf" }} />}
               placeholder="请再次输入新密码"
             />
           </Form.Item>
-
-          <Space>
+          <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+            <Button onClick={handleClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={submitting}>
               确认修改
-            </Button>
-            <Button
-              onClick={() => {
-                setStep(0);
-                form.resetFields();
-              }}
-            >
-              取消
             </Button>
           </Space>
         </Form>
       )}
-    </Card>
+    </Modal>
   );
 }
 
-function KycSection() {
+const kycStatusConfig: Record<string, { color: string; text: string; icon?: React.ReactNode }> = {
+  none: { color: "default", text: "未认证" },
+  pending: { color: "processing", text: "认证中" },
+  success: { color: "success", text: "已认证", icon: <CheckCircleFilled /> },
+  failed: { color: "error", text: "认证失败", icon: <CloseCircleFilled /> },
+  expired: { color: "warning", text: "已过期", icon: <ExclamationCircleOutlined /> },
+};
+
+interface KycModalProps {
+  open: boolean;
+  onClose: () => void;
+  kycStatus: KycStatus | null;
+}
+
+function KycModal({ open, onClose, kycStatus }: KycModalProps) {
   const router = useRouter();
+  const status = kycStatus?.status ?? "none";
+  const config = kycStatusConfig[status] ?? kycStatusConfig.none;
+
+  return (
+    <Modal
+      title={
+        <Space>
+          <SafetyCertificateOutlined style={{ color: "#7c3aed" }} />
+          <span>实名认证详情</span>
+        </Space>
+      }
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      width={480}
+    >
+      <div style={{ padding: "16px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <span style={{ color: "#8c8c8c", minWidth: 80 }}>认证状态</span>
+          <Tag color={config.color} icon={config.icon} style={{ margin: 0 }}>
+            {config.text}
+          </Tag>
+        </div>
+
+        {status === "success" && (
+          <>
+            {kycStatus?.id_name && (
+              <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                <span style={{ color: "#8c8c8c", minWidth: 80 }}>实名姓名</span>
+                <span style={{ fontWeight: 500 }}>{kycStatus.id_name}</span>
+              </div>
+            )}
+            {kycStatus?.id_number && (
+              <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                <span style={{ color: "#8c8c8c", minWidth: 80 }}>身份证号</span>
+                <span style={{ fontWeight: 500 }}>{kycStatus.id_number}</span>
+              </div>
+            )}
+            {kycStatus?.verified_at && (
+              <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                <span style={{ color: "#8c8c8c", minWidth: 80 }}>认证时间</span>
+                <span>{new Date(kycStatus.verified_at).toLocaleString("zh-CN")}</span>
+              </div>
+            )}
+          </>
+        )}
+
+        {status === "failed" && kycStatus?.fail_reason && (
+          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+            <span style={{ color: "#8c8c8c", minWidth: 80 }}>失败原因</span>
+            <Text type="danger">{kycStatus.fail_reason}</Text>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+          <span style={{ color: "#8c8c8c", minWidth: 80 }}>剩余次数</span>
+          <span>{kycStatus?.attempts_remaining ?? "—"} 次</span>
+        </div>
+
+        <Divider style={{ margin: "0 0 16px" }} />
+
+        <Text type="secondary" style={{ display: "block", marginBottom: 16, fontSize: 13 }}>
+          {status === "success"
+            ? "你已完成实名认证。第三方应用可在你授权时获取姓名和身份证信息。"
+            : "完成实名认证后，第三方应用可在你授权时获取真实姓名和身份证信息。"}
+        </Text>
+
+        {status !== "success" && (
+          <Button
+            type="primary"
+            icon={<ArrowRightOutlined />}
+            onClick={() => {
+              onClose();
+              router.push("/kyc");
+            }}
+            block
+          >
+            前往完成实名认证
+          </Button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+export default function SecurityPage() {
+  const user = useAuthStore((s) => s.user);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [kycModalOpen, setKycModalOpen] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [kycLoading, setKycLoading] = useState(true);
 
   useEffect(() => {
     getKycStatus()
       .then(setKycStatus)
-      .catch(() => {
-        // ignore
-      })
-      .finally(() => setLoading(false));
+      .catch(() => {})
+      .finally(() => setKycLoading(false));
   }, []);
 
-  const statusConfig: Record<string, { color: string; text: string; icon?: React.ReactNode }> = {
-    none: { color: "default", text: "未认证" },
-    pending: {
-      color: "processing",
-      text: "认证中",
-    },
-    success: {
-      color: "success",
-      text: "已认证",
-      icon: <CheckCircleFilled />,
-    },
-    failed: {
-      color: "error",
-      text: "认证失败",
-      icon: <CloseCircleFilled />,
-    },
-    expired: { color: "warning", text: "已过期" },
-  };
+  const kycStatusVal = kycStatus?.status ?? "none";
+  const kycConfig = kycStatusConfig[kycStatusVal] ?? kycStatusConfig.none;
 
-  const status = kycStatus?.status ?? "none";
-  const config = statusConfig[status] ?? statusConfig.none;
-
-  return (
-    <Card id="kyc" style={{ marginBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <SafetyCertificateOutlined style={{ fontSize: 20, color: "#7c3aed" }} />
-        <Title level={4} style={{ margin: 0 }}>实名认证</Title>
-      </div>
-
-      {loading ? (
-        <div style={{ textAlign: "center", padding: 24 }}>
-          <Spin />
-        </div>
-      ) : (
-        <>
-          <Descriptions column={1} style={{ marginBottom: 16 }}>
-            <Descriptions.Item label="认证状态">
-              <Tag color={config.color} icon={config.icon}>
-                {config.text}
-              </Tag>
-            </Descriptions.Item>
-            {kycStatus?.status === "success" && kycStatus.id_name && (
-              <Descriptions.Item label="实名姓名">
-                {kycStatus.id_name}
-              </Descriptions.Item>
-            )}
-            {kycStatus?.status === "success" && kycStatus.id_number && (
-              <Descriptions.Item label="身份证号">
-                {kycStatus.id_number}
-              </Descriptions.Item>
-            )}
-            {kycStatus?.status === "success" && kycStatus.verified_at && (
-              <Descriptions.Item label="认证时间">
-                {new Date(kycStatus.verified_at).toLocaleString("zh-CN")}
-              </Descriptions.Item>
-            )}
-            {kycStatus?.status === "failed" && kycStatus.fail_reason && (
-              <Descriptions.Item label="失败原因">
-                <Text type="danger">{kycStatus.fail_reason}</Text>
-              </Descriptions.Item>
-            )}
-            <Descriptions.Item label="剩余认证次数">
-              {kycStatus?.attempts_remaining ?? "—"}
-            </Descriptions.Item>
-          </Descriptions>
-
-          <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
-            {status === "success"
-              ? "你已完成实名认证，无需重复操作。"
-              : "完成实名认证后，第三方应用可获取你授权的真实姓名和身份证信息。"}
-          </Text>
-
-          {status !== "success" && (
-            <Button
-              type="primary"
-              icon={<SafetyCertificateOutlined />}
-              onClick={() => router.push("/kyc")}
-            >
-              前往认证
-            </Button>
-          )}
-        </>
-      )}
-    </Card>
-  );
-}
-
-const anchorItems = [
-  { key: "email", href: "#email", title: "安全邮箱" },
-  { key: "password", href: "#password", title: "密码" },
-  { key: "kyc", href: "#kyc", title: "实名认证" },
-];
-
-export default function SecurityPage() {
   return (
     <AppLayout>
       <Title level={3} style={{ marginBottom: 24 }}>安全中心</Title>
 
-      <div style={{ display: "flex", gap: 24 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <EmailSection />
-          <PasswordSection />
-          <KycSection />
-        </div>
-        <div
-          style={{ width: 160, flexShrink: 0 }}
-          className="hidden lg:block"
-        >
-          <Anchor
-            items={anchorItems}
-            offsetTop={80}
-            targetOffset={80}
-          />
-        </div>
-      </div>
+      <Card style={{ maxWidth: 860 }}>
+        <SecurityRow
+          icon={<MailOutlined />}
+          title="安全邮箱"
+          description="用于接收消息、验证身份（变更安全设置等）"
+          value={
+            user?.email ? (
+              <Text style={{ fontFamily: "monospace" }}>{maskEmail(user.email)}</Text>
+            ) : (
+              <Text type="secondary">未绑定</Text>
+            )
+          }
+          action={
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => setEmailModalOpen(true)}
+            >
+              修改
+            </Button>
+          }
+        />
+
+        <SecurityRow
+          icon={<KeyOutlined />}
+          title="登录密码"
+          description="登录账号时需要输入的密码"
+          value={<Text type="secondary">已设置</Text>}
+          action={
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => setPasswordModalOpen(true)}
+            >
+              修改
+            </Button>
+          }
+        />
+
+        <SecurityRow
+          icon={<SafetyCertificateOutlined />}
+          title="实名认证"
+          description="完成认证后，第三方应用可在你授权时获取身份信息"
+          value={
+            kycLoading ? (
+              <Spin size="small" />
+            ) : (
+              <Tag color={kycConfig.color} icon={kycConfig.icon} style={{ margin: 0 }}>
+                {kycConfig.text}
+              </Tag>
+            )
+          }
+          action={
+            <Button
+              type="link"
+              icon={kycStatusVal === "success" ? <SafetyCertificateOutlined /> : <ArrowRightOutlined />}
+              onClick={() => setKycModalOpen(true)}
+            >
+              {kycStatusVal === "success" ? "详情" : "去认证"}
+            </Button>
+          }
+          last
+        />
+      </Card>
+
+      <EmailModal open={emailModalOpen} onClose={() => setEmailModalOpen(false)} />
+      <PasswordModal open={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
+      <KycModal
+        open={kycModalOpen}
+        onClose={() => setKycModalOpen(false)}
+        kycStatus={kycStatus}
+      />
     </AppLayout>
   );
 }
