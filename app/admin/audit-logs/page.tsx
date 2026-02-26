@@ -10,11 +10,20 @@ import type { AuditLog, IpInfo } from "@/types";
 
 const { Title } = Typography;
 
-function JsonCodeViewer({ json }: { json: string }) {
-  let formatted = json;
-  try {
-    formatted = JSON.stringify(JSON.parse(json), null, 2);
-  } catch {
+function JsonCodeViewer({ json }: { json: unknown }) {
+  let formatted: string;
+  if (typeof json === "string") {
+    try {
+      formatted = JSON.stringify(JSON.parse(json), null, 2);
+    } catch {
+      formatted = json;
+    }
+  } else {
+    try {
+      formatted = JSON.stringify(json, null, 2);
+    } catch {
+      formatted = String(json);
+    }
   }
   const lines = formatted.split("\n");
   const lineNumberWidth = String(lines.length).length;
@@ -137,9 +146,19 @@ export default function AdminAuditLogsPage() {
     setIpModalOpen(true);
   };
 
-  const handleJsonClick = (action: string, body: string) => {
+  const handleJsonClick = (action: string, body: unknown) => {
     setJsonModalTitle(action);
-    setSelectedJson(body);
+    let str: string;
+    if (typeof body === "string") {
+      str = body;
+    } else {
+      try {
+        str = JSON.stringify(body, null, 2);
+      } catch {
+        str = String(body);
+      }
+    }
+    setSelectedJson(str);
     setJsonModalOpen(true);
   };
 
