@@ -15,6 +15,7 @@ import {
   Tooltip,
   Divider,
   Drawer,
+  Grid,
 } from "antd";
 import {
   UserOutlined,
@@ -34,6 +35,7 @@ import type { KycStatus } from "@/types";
 
 const { Text } = Typography;
 const { Header, Content } = Layout;
+const { useBreakpoint } = Grid;
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "LoliAuth";
 
@@ -70,6 +72,8 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
+  const screens = useBreakpoint();
+  const isMobile = screens.md === false;
 
   const fetchKycStatus = useCallback(async () => {
     try {
@@ -212,40 +216,50 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           alignItems: "center",
           background: colorBgContainer,
           borderBottom: "1px solid #f0f0f0",
-          padding: "0 24px",
+          padding: isMobile ? "0 12px" : "0 24px",
           position: "sticky",
           top: 0,
           zIndex: 10,
+          gap: 0,
         }}
       >
         <div
-          className="font-bold text-base sm:text-lg cursor-pointer whitespace-nowrap mr-4 sm:mr-8"
+          style={{
+            fontWeight: 700,
+            fontSize: isMobile ? 15 : 17,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            marginRight: isMobile ? 0 : 12,
+            flexShrink: 0,
+          }}
           onClick={() => router.push("/")}
         >
           {APP_NAME}
         </div>
 
-        <div className="hidden sm:flex" style={{ flex: 1, minWidth: 0 }}>
+        {!isMobile && (
           <Menu
             mode="horizontal"
             selectedKeys={[selectedKey]}
             items={navItems}
             onClick={handleMenuClick}
-            style={{ flex: 1, border: "none" }}
+            style={{ flex: 1, border: "none", minWidth: 0 }}
+            overflowedIndicator={<MenuOutlined />}
           />
-        </div>
+        )}
 
-        {/* Mobile spacer */}
-        <div className="flex-1 sm:hidden" />
-
-        {/* Mobile hamburger */}
-        <Button
-          className="sm:hidden"
-          type="text"
-          icon={<MenuOutlined />}
-          onClick={() => setDrawerOpen(true)}
-          style={{ marginRight: 4 }}
-        />
+        {/* Mobile: spacer + hamburger */}
+        {isMobile && (
+          <>
+            <div style={{ flex: 1 }} />
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setDrawerOpen(true)}
+              style={{ marginRight: 4 }}
+            />
+          </>
+        )}
 
         <Popover
           content={popoverContent}
@@ -258,18 +272,24 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           <Avatar
             style={{
               cursor: "pointer",
-              marginLeft: 16,
+              marginLeft: isMobile ? 0 : 8,
               background: "#8c8c8c",
               fontWeight: 600,
+              flexShrink: 0,
             }}
           >
             {avatarLetter(user?.email)}
           </Avatar>
         </Popover>
       </Header>
+
       <Content
-        className="px-4 pt-5 pb-12 sm:px-6 sm:pt-6 md:px-8"
-        style={{ maxWidth: 1200, width: "100%", margin: "0 auto" }}
+        style={{
+          maxWidth: 1200,
+          width: "100%",
+          margin: "0 auto",
+          padding: isMobile ? "20px 16px 48px" : "24px 32px 64px",
+        }}
       >
         {children}
       </Content>
@@ -278,10 +298,56 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         placement="left"
-        width={220}
+        width={260}
         title={APP_NAME}
-        styles={{ body: { padding: 0 } }}
+        styles={{ body: { padding: 0, display: "flex", flexDirection: "column" } }}
       >
+        <div style={{ padding: "16px 16px 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Avatar
+              size={40}
+              style={{ background: "#8c8c8c", fontWeight: 600, flexShrink: 0 }}
+            >
+              {avatarLetter(user?.email)}
+            </Avatar>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: 14,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {displayName(user?.email)}
+              </div>
+              <Text
+                type="secondary"
+                style={{
+                  fontSize: 12,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  display: "block",
+                }}
+              >
+                {user?.email}
+              </Text>
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <Tag
+              color={isVerified ? "blue" : "orange"}
+              icon={<SafetyCertificateOutlined />}
+            >
+              {isVerified ? "已实名认证" : "未实名认证"}
+            </Tag>
+          </div>
+        </div>
+
+        <Divider style={{ margin: "0" }} />
+
         <Menu
           mode="inline"
           selectedKeys={[selectedKey]}
@@ -290,8 +356,39 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
             router.push(key);
             setDrawerOpen(false);
           }}
-          style={{ border: "none" }}
+          style={{ border: "none", flex: 1 }}
         />
+
+        <Divider style={{ margin: "0" }} />
+
+        {isAdmin && (
+          <Button
+            type="text"
+            icon={<DashboardOutlined />}
+            block
+            style={{ textAlign: "left", margin: "4px 0" }}
+            onClick={() => {
+              setDrawerOpen(false);
+              router.push("/admin/users");
+            }}
+          >
+            管理后台
+          </Button>
+        )}
+
+        <Button
+          type="text"
+          icon={<LogoutOutlined />}
+          danger
+          block
+          style={{ textAlign: "left", margin: "4px 0 8px" }}
+          onClick={() => {
+            setDrawerOpen(false);
+            handleLogout();
+          }}
+        >
+          退出登录
+        </Button>
       </Drawer>
     </Layout>
   );

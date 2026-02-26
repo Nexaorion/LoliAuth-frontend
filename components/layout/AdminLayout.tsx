@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Layout, Menu, theme, Spin, Button, Drawer } from "antd";
+import { Layout, Menu, theme, Spin, Button, Drawer, Grid } from "antd";
 import {
   UserOutlined,
   AppstoreOutlined,
@@ -10,11 +10,14 @@ import {
   FileTextOutlined,
   ArrowLeftOutlined,
   MenuOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useAuthStore } from "@/stores/authStore";
 
 const { Sider, Content } = Layout;
+const { useBreakpoint } = Grid;
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "LoliAuth";
 
@@ -44,6 +47,16 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
   } = theme.useToken();
   const [ready, setReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const screens = useBreakpoint();
+
+  const isMobile = screens.md === false;
+  const isTablet = screens.md === true && screens.lg === false;
+
+  useEffect(() => {
+    if (isTablet) setCollapsed(true);
+    else if (screens.lg) setCollapsed(false);
+  }, [isTablet, screens.lg]);
 
   useEffect(() => {
     hydrate();
@@ -76,84 +89,121 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
     );
   }
 
-  const siderMenu = (
+  const menuContent = (
     <Menu
       mode="inline"
       selectedKeys={[selectedKey]}
       items={siderItems}
       onClick={handleMenuClick}
-      style={{ border: "none", flex: 1 }}
+      style={{ border: "none" }}
     />
   );
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <div
-        className="flex sm:hidden items-center sticky top-0 z-10"
-        style={{
-          height: 56,
-          padding: "0 16px",
-          background: colorBgContainer,
-          borderBottom: "1px solid #f0f0f0",
-          gap: 12,
-        }}
-      >
-        <Button
-          type="text"
-          icon={<MenuOutlined />}
-          onClick={() => setDrawerOpen(true)}
-        />
-        <span style={{ fontWeight: 700, fontSize: 16 }}>管理后台</span>
-      </div>
-
-      <Sider
-        width={220}
-        className="hidden sm:flex"
-        style={{
-          background: colorBgContainer,
-          borderRight: "1px solid #f0f0f0",
-          overflow: "auto",
-          height: "100vh",
-          position: "sticky",
-          insetInlineStart: 0,
-          top: 0,
-        }}
-      >
-        <div
+      {/* Desktop / Tablet sidebar */}
+      {!isMobile && (
+        <Sider
+          width={220}
+          collapsedWidth={64}
+          collapsed={collapsed}
           style={{
-            height: 64,
+            background: colorBgContainer,
+            borderRight: "1px solid #f0f0f0",
+            overflow: "hidden auto",
+            height: "100vh",
+            position: "sticky",
+            insetInlineStart: 0,
+            top: 0,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 700,
-            fontSize: 16,
+            flexDirection: "column",
           }}
         >
-          管理后台
-        </div>
-        {siderMenu}
-      </Sider>
+          {/* Brand / collapse toggle */}
+          <div
+            style={{
+              height: 64,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "space-between",
+              padding: collapsed ? "0 20px" : "0 12px 0 20px",
+              borderBottom: "1px solid #f0f0f0",
+              flexShrink: 0,
+              overflow: "hidden",
+            }}
+          >
+            {!collapsed && (
+              <span
+                style={{
+                  fontWeight: 700,
+                  fontSize: 15,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                }}
+              >
+                管理后台
+              </span>
+            )}
+            <Button
+              type="text"
+              size="small"
+              icon={
+                collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />
+              }
+              onClick={() => setCollapsed((c) => !c)}
+              style={{ color: "#8c8c8c", flexShrink: 0 }}
+            />
+          </div>
+          {menuContent}
+        </Sider>
+      )}
 
       {/* Mobile Drawer */}
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         placement="left"
-        width={220}
-        title={APP_NAME + " 管理"}
+        width={240}
+        title={<span style={{ fontWeight: 700 }}>{APP_NAME} · 管理后台</span>}
         styles={{ body: { padding: 0 } }}
       >
-        {siderMenu}
+        {menuContent}
       </Drawer>
 
-      <Layout>
+      <Layout style={{ minWidth: 0 }}>
+        {isMobile && (
+          <div
+            style={{
+              height: 56,
+              padding: "0 16px",
+              background: colorBgContainer,
+              borderBottom: "1px solid #f0f0f0",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+              flexShrink: 0,
+            }}
+          >
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setDrawerOpen(true)}
+            />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>管理后台</span>
+          </div>
+        )}
+
         <Content
-          className="m-3 sm:m-6"
           style={{
-            padding: "16px",
+            margin: isMobile ? 12 : 24,
+            padding: isMobile ? 16 : 24,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
             minHeight: 280,
+            minWidth: 0,
           }}
         >
           {children}
