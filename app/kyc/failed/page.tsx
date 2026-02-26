@@ -71,15 +71,13 @@ const failCategoryColors: Partial<Record<KycFailCategory, string>> = {
 
 export default function KycFailedPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isLoggedIn] = useState(() => !!getToken());
+  const [loading, setLoading] = useState(() => !!getToken());
   const [record, setRecord] = useState<KycRecord | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      setIsLoggedIn(true);
+    if (isLoggedIn) {
       verifyKyc()
         .then((data) => {
           setRecord(data);
@@ -92,11 +90,8 @@ export default function KycFailedPage() {
           setFetchError(msg);
         })
         .finally(() => setLoading(false));
-    } else {
-      setIsLoggedIn(false);
-      setLoading(false);
     }
-  }, []);
+  }, [isLoggedIn]);
 
   const renderDetails = () => {
     if (!isLoggedIn) return null;

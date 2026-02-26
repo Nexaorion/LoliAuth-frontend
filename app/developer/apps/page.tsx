@@ -13,7 +13,7 @@ const { Title } = Typography;
 
 export default function DeveloperAppsPage() {
   const router = useRouter();
-  const { message, modal } = App.useApp();
+  const { message } = App.useApp();
   const [clients, setClients] = useState<OAuthClient[]>([]);
   const [loading, setLoading] = useState(true);
 

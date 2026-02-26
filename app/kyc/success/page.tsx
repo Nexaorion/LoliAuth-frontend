@@ -15,7 +15,6 @@ import {
 } from "antd";
 import {
   CheckCircleFilled,
-  SafetyCertificateOutlined,
   LoginOutlined,
   FileSearchOutlined,
 } from "@ant-design/icons";
@@ -31,15 +30,13 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "LoliAuth";
 
 export default function KycSuccessPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isLoggedIn] = useState(() => !!getToken());
+  const [loading, setLoading] = useState(() => !!getToken());
   const [record, setRecord] = useState<KycRecord | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      setIsLoggedIn(true);
+    if (isLoggedIn) {
       verifyKyc()
         .then((data) => {
           setRecord(data);
@@ -52,11 +49,8 @@ export default function KycSuccessPage() {
           setFetchError(msg);
         })
         .finally(() => setLoading(false));
-    } else {
-      setIsLoggedIn(false);
-      setLoading(false);
     }
-  }, []);
+  }, [isLoggedIn]);
 
   const renderDetails = () => {
     if (!isLoggedIn) return null;

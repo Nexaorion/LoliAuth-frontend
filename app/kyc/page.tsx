@@ -241,7 +241,7 @@ export default function KycPage() {
         clearKycSession();
       }
     });
-  }, []);
+  }, [fetchData, modal, openVerifyModal]);
 
   const handleStart = async () => {
     setStarting(true);
