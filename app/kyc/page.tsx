@@ -25,9 +25,6 @@ import {
 } from "@ant-design/icons";
 import AppLayout from "@/components/layout/AppLayout";
 import { startKyc, verifyKyc, getKycStatus } from "@/lib/api/kyc";
-import { isDeviceRegistered } from "@/lib/device-sign";
-import { ensureDeviceRegistered } from "@/lib/api/sign-server";
-import { useAuthStore } from "@/stores/authStore";
 import type { KycStatus } from "@/types";
 import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
@@ -249,20 +246,6 @@ export default function KycPage() {
   const handleStart = async () => {
     setStarting(true);
     try {
-      if (!isDeviceRegistered()) {
-        const user = useAuthStore.getState().user;
-        if (!user?.id) {
-          message.error("请先登录后再进行认证");
-          return;
-        }
-        try {
-          await ensureDeviceRegistered(user.id);
-        } catch {
-          message.error("设备注册失败，请检查网络后重试");
-          return;
-        }
-      }
-
       const res = await startKyc();
       const session: KycSession = {
         verifyToken: res.verify_token,
@@ -281,8 +264,6 @@ export default function KycPage() {
         fetchData();
       } else if (errCode === "no_attempts") {
         message.error("认证次数已用完");
-      } else if (errCode === "invalid_request") {
-        message.error("设备签名缺失，请刷新页面后重试");
       } else {
         message.error("发起认证失败");
       }

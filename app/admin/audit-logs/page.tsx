@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Table, Input, Space, Typography, App, Button, Select, Tooltip, Tag, Modal, Descriptions } from "antd";
-import { SearchOutlined, DownloadOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, GlobalOutlined, WarningOutlined } from "@ant-design/icons";
+import { SearchOutlined, DownloadOutlined, GlobalOutlined, WarningOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { getAuditLogs, exportAuditLogs } from "@/lib/api/admin";
@@ -178,32 +178,6 @@ export default function AdminAuditLogsPage() {
         ) : (
           "—"
         ),
-    },
-    {
-      title: "签名",
-      dataIndex: "signature",
-      key: "signature",
-      ellipsis: true,
-      render: (v: string) =>
-        v ? (
-          <Tooltip title={v}>
-            <code style={{ fontSize: 11 }}>{v.slice(0, 16)}…</code>
-          </Tooltip>
-        ) : (
-          "—"
-        ),
-    },
-    {
-      title: "签名验证",
-      dataIndex: "signature_valid",
-      key: "signature_valid",
-      width: 100,
-      align: "center",
-      render: (v: boolean | null) => {
-        if (v === true) return <Tag icon={<CheckCircleOutlined />} color="success">有效</Tag>;
-        if (v === false) return <Tag icon={<CloseCircleOutlined />} color="error">无效</Tag>;
-        return <Tag icon={<QuestionCircleOutlined />} color="default">未知</Tag>;
-      },
     },
     {
       title: "时间",

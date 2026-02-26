@@ -208,8 +208,6 @@ export interface AuditLog {
   ip_address: string;
   device_fingerprint: string;
   device_name: string;
-  signature: string;
-  signature_valid: boolean | null;
   ip_info: IpInfo | null;
   created_at: string;
 }
