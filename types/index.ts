@@ -209,6 +209,7 @@ export interface AuditLog {
   device_fingerprint: string;
   device_name: string;
   ip_info: IpInfo | null;
+  response_body?: string | null;
   created_at: string;
 }
 

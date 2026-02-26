@@ -2,13 +2,78 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Table, Input, Space, Typography, App, Button, Select, Tooltip, Tag, Modal, Descriptions } from "antd";
-import { SearchOutlined, DownloadOutlined, GlobalOutlined, WarningOutlined } from "@ant-design/icons";
+import { SearchOutlined, DownloadOutlined, GlobalOutlined, WarningOutlined, CodeOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { getAuditLogs, exportAuditLogs } from "@/lib/api/admin";
 import type { AuditLog, IpInfo } from "@/types";
 
 const { Title } = Typography;
+
+function JsonCodeViewer({ json }: { json: string }) {
+  let formatted = json;
+  try {
+    formatted = JSON.stringify(JSON.parse(json), null, 2);
+  } catch {
+  }
+  const lines = formatted.split("\n");
+  const lineNumberWidth = String(lines.length).length;
+
+  return (
+    <div
+      style={{
+        background: "#0d1117",
+        borderRadius: 6,
+        overflow: "auto",
+        maxHeight: 480,
+        fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+        fontSize: 13,
+        lineHeight: "20px",
+        border: "1px solid #30363d",
+      }}
+    >
+      <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "max-content" }}>
+        <tbody>
+          {lines.map((line, index) => (
+            <tr
+              key={index}
+              style={{ display: "table-row" }}
+            >
+              <td
+                style={{
+                  userSelect: "none",
+                  textAlign: "right",
+                  paddingLeft: 16,
+                  paddingRight: 12,
+                  minWidth: lineNumberWidth * 8 + 32,
+                  color: "#6e7681",
+                  borderRight: "1px solid #21262d",
+                  verticalAlign: "top",
+                  background: "#0d1117",
+                  position: "sticky",
+                  left: 0,
+                }}
+              >
+                {index + 1}
+              </td>
+              <td
+                style={{
+                  paddingLeft: 16,
+                  paddingRight: 16,
+                  color: "#e6edf3",
+                  whiteSpace: "pre",
+                  verticalAlign: "top",
+                }}
+              >
+                {line || " "}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 /** 将 usage_type 代码映射为可读标签 */
 function formatUsageType(type: string): string {
@@ -40,6 +105,9 @@ export default function AdminAuditLogsPage() {
   const [ipModalOpen, setIpModalOpen] = useState(false);
   const [selectedIpInfo, setSelectedIpInfo] = useState<IpInfo | null>(null);
   const [ipModalTitle, setIpModalTitle] = useState("");
+  const [jsonModalOpen, setJsonModalOpen] = useState(false);
+  const [selectedJson, setSelectedJson] = useState("");
+  const [jsonModalTitle, setJsonModalTitle] = useState("");
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -67,6 +135,12 @@ export default function AdminAuditLogsPage() {
     setIpModalTitle(ip);
     setSelectedIpInfo(ipInfo);
     setIpModalOpen(true);
+  };
+
+  const handleJsonClick = (action: string, body: string) => {
+    setJsonModalTitle(action);
+    setSelectedJson(body);
+    setJsonModalOpen(true);
   };
 
   const handleExport = async () => {
@@ -180,6 +254,25 @@ export default function AdminAuditLogsPage() {
         ),
     },
     {
+      title: "响应体",
+      key: "response_body",
+      width: 80,
+      align: "center" as const,
+      render: (_: unknown, record: AuditLog) =>
+        record.response_body ? (
+          <Tooltip title="查看响应体">
+            <Button
+              type="text"
+              size="small"
+              icon={<CodeOutlined />}
+              onClick={() => handleJsonClick(record.action, record.response_body!)}
+            />
+          </Tooltip>
+        ) : (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>—</Typography.Text>
+        ),
+    },
+    {
       title: "时间",
       dataIndex: "created_at",
       key: "created_at",
@@ -247,6 +340,21 @@ export default function AdminAuditLogsPage() {
           },
         }}
       />
+      <Modal
+        title={
+          <Space>
+            <CodeOutlined />
+            <span>响应体：{jsonModalTitle}</span>
+          </Space>
+        }
+        open={jsonModalOpen}
+        onCancel={() => setJsonModalOpen(false)}
+        footer={null}
+        width={760}
+        styles={{ body: { padding: "12px 0 0" } }}
+      >
+        {selectedJson && <JsonCodeViewer json={selectedJson} />}
+      </Modal>
       <Modal
         title={
           <Space>
