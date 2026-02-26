@@ -1,6 +1,8 @@
 const DEVICE_TOKEN_KEY = "loliauth_device_token";
 const DEVICE_PRIVATE_KEY_KEY = "loliauth_device_private_key";
+const DEVICE_PUBLIC_KEY_KEY = "loliauth_device_public_key";
 const DEVICE_FINGERPRINT_KEY = "loliauth_device_fingerprint";
+const DEVICE_ID_KEY = "loliauth_device_id";
 
 export function getDeviceToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -18,6 +20,32 @@ export function getDevicePrivateKey(): string | null {
 
 export function setDevicePrivateKey(key: string): void {
   localStorage.setItem(DEVICE_PRIVATE_KEY_KEY, key);
+}
+
+export function getDevicePublicKey(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(DEVICE_PUBLIC_KEY_KEY);
+}
+
+export function setDevicePublicKey(key: string): void {
+  localStorage.setItem(DEVICE_PUBLIC_KEY_KEY, key);
+}
+
+export function getDeviceId(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(DEVICE_ID_KEY);
+}
+
+export function setDeviceId(id: string): void {
+  localStorage.setItem(DEVICE_ID_KEY, id);
+}
+
+export function clearDeviceCredentials(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(DEVICE_TOKEN_KEY);
+  localStorage.removeItem(DEVICE_PRIVATE_KEY_KEY);
+  localStorage.removeItem(DEVICE_PUBLIC_KEY_KEY);
+  localStorage.removeItem(DEVICE_ID_KEY);
 }
 
 export function getDeviceFingerprint(): string {
@@ -84,6 +112,31 @@ function base64UrlEncode(buffer: ArrayBuffer): string {
   bytes.forEach((b) => (binary += String.fromCharCode(b)));
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
+export interface Ed25519KeyPair {
+  privateKeyPem: string;
+  publicKeyBase64Url: string;
+}
+
+export async function generateEd25519KeyPair(): Promise<Ed25519KeyPair> {
+  const keyPair = await crypto.subtle.generateKey("Ed25519", true, [
+    "sign",
+    "verify",
+  ]);
+
+  const privateKeyBuffer = await crypto.subtle.exportKey(
+    "pkcs8",
+    keyPair.privateKey
+  );
+  const privateKeyBase64 = btoa(
+    String.fromCharCode(...new Uint8Array(privateKeyBuffer))
+  );
+  const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64.match(/.{1,64}/g)!.join("\n")}\n-----END PRIVATE KEY-----`;
+
+  const publicKeyRaw = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const publicKeyBase64Url = base64UrlEncode(publicKeyRaw);
+
+  return { privateKeyPem, publicKeyBase64Url };
+}
 
 export interface DeviceSignatureHeaders {
   "X-Device-Token": string;
@@ -115,13 +168,18 @@ export async function generateSignatureHeaders(
   const bodyHash = await sha256Hex(body);
 
   // Build Canonical String
-  const canonical = [method.toUpperCase(), pathWithQuery, bodyHash, timestamp, nonce].join("\n");
+  const canonical = [
+    method.toUpperCase(),
+    pathWithQuery,
+    bodyHash,
+    timestamp,
+    nonce,
+  ].join("\n");
 
   // SHA256 digest of canonical string
   const digestBuffer = await sha256Bytes(canonical);
 
   // Sign with Ed25519
-  // Import the private key
   const privateKeyDer = pemToDer(privateKeyPem);
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
@@ -131,7 +189,11 @@ export async function generateSignatureHeaders(
     ["sign"]
   );
 
-  const signatureBuffer = await crypto.subtle.sign("Ed25519", cryptoKey, digestBuffer);
+  const signatureBuffer = await crypto.subtle.sign(
+    "Ed25519",
+    cryptoKey,
+    digestBuffer
+  );
   const signatureBase64Url = base64UrlEncode(signatureBuffer);
 
   return {

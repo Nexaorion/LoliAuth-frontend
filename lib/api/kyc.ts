@@ -1,13 +1,36 @@
 import http from "@/lib/http";
 import type { KycStartResponse, KycRecord, KycStatus } from "@/types";
-import { generateSignatureHeaders, isDeviceRegistered } from "@/lib/device-sign";
+import {
+  generateSignatureHeaders,
+  isDeviceRegistered,
+} from "@/lib/device-sign";
+import { ensureDeviceRegistered } from "@/lib/api/sign-server";
+
+async function getCurrentUserId(): Promise<string | null> {
+  const { useAuthStore } = await import("@/stores/authStore");
+  const user = useAuthStore.getState().user;
+  return user?.id ?? null;
+}
 
 async function withDeviceSign(
   method: string,
   path: string,
   body: string = ""
 ): Promise<Record<string, string>> {
-  if (!isDeviceRegistered()) return {};
+  if (!isDeviceRegistered()) {
+    const userId = await getCurrentUserId();
+    if (userId) {
+      try {
+        await ensureDeviceRegistered(userId);
+      } catch (e) {
+        console.warn("[KYC] 设备注册失败，将不携带签名:", e);
+        return {};
+      }
+    } else {
+      return {};
+    }
+  }
+
   const headers = await generateSignatureHeaders(method, path, body);
   return headers ? (headers as unknown as Record<string, string>) : {};
 }
