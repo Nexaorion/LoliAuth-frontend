@@ -21,6 +21,7 @@ import {
   CloseCircleFilled,
   ExclamationCircleOutlined,
   InfoCircleOutlined,
+  LinkOutlined,
 } from "@ant-design/icons";
 import AppLayout from "@/components/layout/AppLayout";
 import { startKyc, verifyKyc, getKycStatus } from "@/lib/api/kyc";
@@ -100,8 +101,14 @@ export default function KycPage() {
   const [failReason, setFailReason] = useState<string | null>(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeCheckedRef = useRef(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    setIsMobile(mq.matches || navigator.maxTouchPoints > 0);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -466,10 +473,25 @@ export default function KycPage() {
           </div>
         ) : (
           <div style={{ textAlign: "center" }}>
-            {h5Url && <QRCode value={h5Url} size={240} style={{ margin: "0 auto" }} />}
+            {h5Url && (
+              <QRCode value={h5Url} size={240} style={{ margin: "0 auto" }} />
+            )}
             <div style={{ marginTop: 16 }}>
               <Space direction="vertical" align="center" size="small">
-                <Text>请使用手机扫描二维码完成认证</Text>
+                <Text>
+                  {isMobile
+                    ? "请扫描二维码或点击下方按钮完成认证"
+                    : "请使用手机扫描二维码完成认证"}
+                </Text>
+                {isMobile && h5Url && (
+                  <Button
+                    type="primary"
+                    icon={<LinkOutlined />}
+                    onClick={() => window.open(h5Url, "_blank", "noopener,noreferrer")}
+                  >
+                    在新标签页打开链接
+                  </Button>
+                )}
                 <Space size="small">
                   <LoadingOutlined spin />
                   <Text type="secondary">正在等待认证结果...</Text>
