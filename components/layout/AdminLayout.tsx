@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Layout, Menu, theme, Spin, Button, Drawer, Grid } from "antd";
+import { Layout, Menu, theme, Spin, Button, Drawer, Grid, Watermark } from "antd";
 import {
   UserOutlined,
   AppstoreOutlined,
@@ -15,6 +15,7 @@ import {
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useAuthStore } from "@/stores/authStore";
+import { getDeviceFingerprint } from "@/lib/device-sign";
 
 const { Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -38,16 +39,29 @@ const siderItems: MenuProps["items"] = [
   { key: "/profile", icon: <ArrowLeftOutlined />, label: "返回前台" },
 ];
 
+function formatTime(d: Date) {
+  return d.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 export default function AdminLayout({ children }: React.PropsWithChildren) {
   const router = useRouter();
   const pathname = usePathname();
-  const { hydrate, loadProfile, loading } = useAuthStore();
+  const { user, hydrate, loadProfile, loading } = useAuthStore();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
   const [ready, setReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [loginTime] = useState(() => formatTime(new Date()));
+  const [fingerprint, setFingerprint] = useState("");
   const screens = useBreakpoint();
 
   const isMobile = screens.md === false;
@@ -57,6 +71,10 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
     if (isTablet) setCollapsed(true);
     else if (screens.lg) setCollapsed(false);
   }, [isTablet, screens.lg]);
+
+  useEffect(() => {
+    setFingerprint(getDeviceFingerprint());
+  }, []);
 
   useEffect(() => {
     hydrate();
@@ -170,6 +188,18 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
         {menuContent}
       </Drawer>
 
+      <Watermark
+        content={[
+          user?.email?.split("@")[0] ?? "",
+          user?.email ?? "",
+          loginTime,
+          fingerprint,
+        ]}
+        font={{ fontSize: 12, color: "rgba(0,0,0,0.08)" }}
+        gap={[180, 120]}
+        rotate={-22}
+        style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column" }}
+      >
       <Layout style={{ minWidth: 0 }}>
         {isMobile && (
           <div
@@ -209,6 +239,7 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
           {children}
         </Content>
       </Layout>
+      </Watermark>
     </Layout>
   );
 }
