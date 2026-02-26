@@ -3,6 +3,7 @@ const DEVICE_PRIVATE_KEY_KEY = "loliauth_device_private_key";
 const DEVICE_PUBLIC_KEY_KEY = "loliauth_device_public_key";
 const DEVICE_FINGERPRINT_KEY = "loliauth_device_fingerprint";
 const DEVICE_ID_KEY = "loliauth_device_id";
+const DEVICE_EXPIRES_AT_KEY = "loliauth_device_expires_at";
 
 export function getDeviceToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -40,12 +41,24 @@ export function setDeviceId(id: string): void {
   localStorage.setItem(DEVICE_ID_KEY, id);
 }
 
+export function setDeviceExpiresAt(expiresAt: number): void {
+  localStorage.setItem(DEVICE_EXPIRES_AT_KEY, expiresAt.toString());
+}
+
+export function isDeviceTokenExpired(): boolean {
+  if (typeof window === "undefined") return true;
+  const raw = localStorage.getItem(DEVICE_EXPIRES_AT_KEY);
+  if (!raw) return false;
+  return Date.now() / 1000 >= Number(raw) - 60;
+}
+
 export function clearDeviceCredentials(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(DEVICE_TOKEN_KEY);
   localStorage.removeItem(DEVICE_PRIVATE_KEY_KEY);
   localStorage.removeItem(DEVICE_PUBLIC_KEY_KEY);
   localStorage.removeItem(DEVICE_ID_KEY);
+  localStorage.removeItem(DEVICE_EXPIRES_AT_KEY);
 }
 
 export function getDeviceFingerprint(): string {
@@ -78,13 +91,15 @@ function generateFingerprint(): string {
     new Date().getTimezoneOffset().toString(),
     navigator.hardwareConcurrency?.toString() || "unknown",
   ];
-  let hash = 0;
+  let h1 = 0x811c9dc5;
+  let h2 = 0xdeadbeef;
   const str = components.join("|");
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
+    h1 = (Math.imul(h1 ^ char, 0x01000193)) >>> 0;
+    h2 = (Math.imul(h2 ^ char, 0x811c9dc5)) >>> 0;
   }
-  return "fp_" + Math.abs(hash).toString(36) + Date.now().toString(36);
+  return "fp_" + h1.toString(36) + h2.toString(36);
 }
 
 function generateNonce(length = 32): string {
@@ -148,7 +163,7 @@ export interface DeviceSignatureHeaders {
 }
 
 export function isDeviceRegistered(): boolean {
-  return !!getDeviceToken() && !!getDevicePrivateKey();
+  return !!getDeviceToken() && !!getDevicePrivateKey() && !isDeviceTokenExpired();
 }
 
 export async function generateSignatureHeaders(

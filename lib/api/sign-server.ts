@@ -4,11 +4,13 @@ import {
   getDeviceFingerprint,
   getDeviceName,
   setDeviceToken,
+  setDeviceExpiresAt,
   setDevicePrivateKey,
   setDevicePublicKey,
   setDeviceId,
   getDeviceId,
   isDeviceRegistered,
+  isDeviceTokenExpired,
   clearDeviceCredentials,
 } from "@/lib/device-sign";
 
@@ -59,6 +61,7 @@ export async function registerDevice(
 
   // Persist credentials to localStorage
   setDeviceToken(res.data.device_token);
+  setDeviceExpiresAt(res.data.expires_at);
   setDeviceId(res.data.device_id);
   setDevicePrivateKey(keyPair.privateKeyPem);
   setDevicePublicKey(keyPair.publicKeyBase64Url);
@@ -91,7 +94,6 @@ export async function ensureDeviceRegistered(
 
   // Clear any stale partial credentials
   clearDeviceCredentials();
-
   await registerDevice(userId);
   return true;
 }
