@@ -59,22 +59,16 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
   } = theme.useToken();
   const [ready, setReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [userCollapsed, setUserCollapsed] = useState<boolean | null>(null);
   const [loginTime] = useState(() => formatTime(new Date()));
-  const [fingerprint, setFingerprint] = useState("");
+  const [fingerprint] = useState(() => getDeviceFingerprint());
   const screens = useBreakpoint();
 
   const isMobile = screens.md === false;
   const isTablet = screens.md === true && screens.lg === false;
 
-  useEffect(() => {
-    if (isTablet) setCollapsed(true);
-    else if (screens.lg) setCollapsed(false);
-  }, [isTablet, screens.lg]);
-
-  useEffect(() => {
-    setFingerprint(getDeviceFingerprint());
-  }, []);
+  // Derive effective collapsed: honour manual toggle; otherwise auto-collapse on tablet
+  const collapsed = userCollapsed !== null ? userCollapsed : isTablet;
 
   useEffect(() => {
     hydrate();
@@ -168,7 +162,7 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
               icon={
                 collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />
               }
-              onClick={() => setCollapsed((c) => !c)}
+              onClick={() => setUserCollapsed((c) => !(c !== null ? c : isTablet))}
               style={{ color: "#8c8c8c", flexShrink: 0 }}
             />
           </div>
