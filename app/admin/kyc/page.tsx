@@ -14,6 +14,7 @@ import {
   Card,
   Divider,
   Modal,
+  Image,
 } from "antd";
 import {
   SearchOutlined,
@@ -32,7 +33,7 @@ import {
   setKycAttempts,
   resetKycStatus,
 } from "@/lib/api/admin";
-import type { AdminUser, KycStatus, KycRecord } from "@/types";
+import type { AdminUser, KycStatus, AdminKycRecord } from "@/types";
 
 const { Title } = Typography;
 
@@ -66,7 +67,7 @@ export default function AdminKycPage() {
   const [detailUser, setDetailUser] = useState<AdminUser | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
-  const [records, setRecords] = useState<KycRecord[]>([]);
+  const [records, setRecords] = useState<AdminKycRecord[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [delta, setDelta] = useState<number>(1);
   const [setAttemptsVal, setSetAttemptsVal] = useState<number>(1);
@@ -168,16 +169,6 @@ export default function AdminKycPage() {
     },
     { title: "邮箱", dataIndex: "email", key: "email" },
     {
-      title: "KYC 状态",
-      dataIndex: "kyc_status",
-      key: "kyc_status",
-      width: 120,
-      render: (s: string) => {
-        const cfg = kycStatusMap[s] || { color: "default", text: s };
-        return <Tag color={cfg.color}>{cfg.text}</Tag>;
-      },
-    },
-    {
       title: "剩余次数",
       dataIndex: "kyc_attempts_remaining",
       key: "kyc_attempts_remaining",
@@ -200,7 +191,7 @@ export default function AdminKycPage() {
     },
   ];
 
-  const recordColumns: ColumnsType<KycRecord> = [
+  const recordColumns: ColumnsType<AdminKycRecord> = [
     {
       title: "状态",
       dataIndex: "status",
@@ -216,6 +207,18 @@ export default function AdminKycPage() {
       title: "分数",
       dataIndex: "score",
       key: "score",
+      render: (v: number) => (v != null ? v.toFixed(2) : "—"),
+    },
+    {
+      title: "活体分数",
+      dataIndex: "liveness_score",
+      key: "liveness_score",
+      render: (v: number) => (v != null ? v.toFixed(2) : "—"),
+    },
+    {
+      title: "欺骗分数",
+      dataIndex: "spoofing_score",
+      key: "spoofing_score",
       render: (v: number) => (v != null ? v.toFixed(2) : "—"),
     },
     {
@@ -238,6 +241,71 @@ export default function AdminKycPage() {
       render: (v: string) => new Date(v).toLocaleString("zh-CN"),
     },
   ];
+
+  const expandedRecordRender = (record: AdminKycRecord) => {
+    const ocrFields: { label: string; value?: string }[] = [
+      { label: "生日", value: record.birthday },
+      { label: "性别", value: record.gender },
+      { label: "民族", value: record.nation },
+      { label: "地址", value: record.address },
+      { label: "签发机关", value: record.issue_authority },
+      { label: "身份证签发日期", value: record.id_card_issue_time },
+      { label: "身份证到期日期", value: record.id_card_expire_time },
+    ];
+
+    const hasOcr = ocrFields.some((f) => f.value);
+    const hasImages = record.id_card_front_image || record.id_card_back_image;
+
+    if (!hasOcr && !hasImages) {
+      return <Typography.Text type="secondary">暂无OCR详细信息</Typography.Text>;
+    }
+
+    return (
+      <div style={{ padding: "8px 0" }}>
+        {hasOcr && (
+          <Descriptions bordered column={2} size="small" style={{ marginBottom: 16 }}>
+            {ocrFields
+              .filter((f) => f.value)
+              .map((f) => (
+                <Descriptions.Item label={f.label} key={f.label}>
+                  {f.value}
+                </Descriptions.Item>
+              ))}
+          </Descriptions>
+        )}
+        {hasImages && (
+          <Space size="large">
+            {record.id_card_front_image && (
+              <div>
+                <Typography.Text type="secondary" style={{ display: "block", marginBottom: 4 }}>
+                  身份证正面
+                </Typography.Text>
+                <Image
+                  src={`data:image/jpeg;base64,${record.id_card_front_image}`}
+                  alt="身份证正面"
+                  width={240}
+                  style={{ borderRadius: 4 }}
+                />
+              </div>
+            )}
+            {record.id_card_back_image && (
+              <div>
+                <Typography.Text type="secondary" style={{ display: "block", marginBottom: 4 }}>
+                  身份证背面
+                </Typography.Text>
+                <Image
+                  src={`data:image/jpeg;base64,${record.id_card_back_image}`}
+                  alt="身份证背面"
+                  width={240}
+                  style={{ borderRadius: 4 }}
+                />
+              </div>
+            )}
+          </Space>
+        )}
+      </div>
+    );
+  };
 
   return (
     <AdminLayout>
@@ -288,7 +356,7 @@ export default function AdminKycPage() {
           setRecords([]);
         }}
         footer={null}
-        width={800}
+        width={1000}
         loading={detailLoading}
       >
         {kycStatus && (
@@ -380,6 +448,19 @@ export default function AdminKycPage() {
               dataSource={records}
               rowKey="id"
               pagination={false}
+              scroll={{ x: 900 }}
+              expandable={{
+                expandedRowRender: expandedRecordRender,
+                rowExpandable: (record) =>
+                  !!(
+                    record.birthday ||
+                    record.gender ||
+                    record.nation ||
+                    record.address ||
+                    record.id_card_front_image ||
+                    record.id_card_back_image
+                  ),
+              }}
             />
           </>
         )}

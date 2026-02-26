@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getToken, removeToken } from "@/lib/auth";
+import { getDeviceFingerprint, getDeviceName } from "@/lib/device-sign";
 
 const http = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "https://oauth.nexaorion.cn",
@@ -7,12 +8,19 @@ const http = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Inject Authorization header
+// Inject Authorization header and device info headers
 http.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Add device info headers for audit logging
+  if (typeof window !== "undefined") {
+    config.headers["X-Device-Fingerprint"] = getDeviceFingerprint();
+    config.headers["X-Device-Name"] = getDeviceName();
+  }
+
   return config;
 });
 

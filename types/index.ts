@@ -128,6 +128,7 @@ export interface KycRecord {
   id_number?: string;
   score?: number;
   liveness_score?: number;
+  spoofing_score?: number;
   fail_reason?: string;
   fail_category?: KycFailCategory;
   baidu_error_code?: number;
@@ -153,10 +154,21 @@ export interface AdminUser {
   email: string;
   status: "active" | "disabled" | "suspended";
   role: "user" | "admin";
-  kyc_status: "none" | "pending" | "success" | "failed" | "expired";
   kyc_attempts_remaining: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminKycRecord extends KycRecord {
+  birthday?: string;
+  gender?: string;
+  nation?: string;
+  address?: string;
+  id_card_expire_time?: string;
+  issue_authority?: string;
+  id_card_issue_time?: string;
+  id_card_front_image?: string;
+  id_card_back_image?: string;
 }
 
 export interface AdminClient {
@@ -178,6 +190,10 @@ export interface AuditLog {
   user_id: string;
   action: string;
   ip_address: string;
+  device_fingerprint: string;
+  device_name: string;
+  signature: string;
+  signature_valid: boolean | null;
   created_at: string;
 }
 

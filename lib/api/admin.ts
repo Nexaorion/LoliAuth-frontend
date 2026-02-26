@@ -2,12 +2,12 @@ import http from "@/lib/http";
 import type {
   AdminUser,
   AdminClient,
+  AdminKycRecord,
   AuditLog,
   PaginatedResponse,
   UpdateUserRequest,
   UpdateClientStatusRequest,
   KycStatus,
-  KycRecord,
   KycAttemptsResponse,
 } from "@/types";
 
@@ -99,8 +99,8 @@ export async function getAdminKycStatus(userId: string): Promise<KycStatus> {
 
 export async function getAdminKycRecords(
   userId: string
-): Promise<KycRecord[]> {
-  const res = await http.get<KycRecord[]>(
+): Promise<AdminKycRecord[]> {
+  const res = await http.get<AdminKycRecord[]>(
     `/api/v1/admin/kyc/${userId}/records`
   );
   return res.data;
@@ -147,5 +147,17 @@ export async function getAuditLogs(params?: {
     "/api/v1/admin/audit-logs",
     { params }
   );
+  return res.data;
+}
+
+export async function exportAuditLogs(params?: {
+  format?: "txt" | "text" | "markdown" | "md";
+  user_id?: string;
+  action?: string;
+}): Promise<Blob> {
+  const res = await http.get("/api/v1/admin/audit-logs/export", {
+    params,
+    responseType: "blob",
+  });
   return res.data;
 }
