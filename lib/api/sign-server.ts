@@ -1,4 +1,4 @@
-import http from "@/lib/http";
+import axios from "axios";
 import {
   generateEd25519KeyPair,
   getDeviceFingerprint,
@@ -11,6 +11,13 @@ import {
   isDeviceRegistered,
   clearDeviceCredentials,
 } from "@/lib/device-sign";
+
+const signHttp = axios.create({
+  baseURL:
+    process.env.NEXT_PUBLIC_SIGN_SERVER_URL || "https://sign.nexaorion.tech",
+  timeout: 15000,
+  headers: { "Content-Type": "application/json" },
+});
 
 interface DeviceRegisterRequest {
   user_id: string;
@@ -45,7 +52,7 @@ export async function registerDevice(
     timestamp: Math.floor(Date.now() / 1000),
   };
 
-  const res = await http.post<DeviceRegisterResponse>(
+  const res = await signHttp.post<DeviceRegisterResponse>(
     "/device/register",
     body
   );
@@ -69,7 +76,7 @@ export async function revokeDevice(userId: string): Promise<void> {
   };
 
   try {
-    await http.post("/device/revoke", body);
+    await signHttp.post("/device/revoke", body);
   } finally {
     clearDeviceCredentials();
   }
