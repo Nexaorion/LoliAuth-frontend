@@ -1,14 +1,30 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Table, Input, Space, Typography, App, Button, Select, Tooltip, Tag } from "antd";
-import { SearchOutlined, DownloadOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined } from "@ant-design/icons";
+import { Table, Input, Space, Typography, App, Button, Select, Tooltip, Tag, Modal, Descriptions } from "antd";
+import { SearchOutlined, DownloadOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, GlobalOutlined, WarningOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { getAuditLogs, exportAuditLogs } from "@/lib/api/admin";
-import type { AuditLog } from "@/types";
+import type { AuditLog, IpInfo } from "@/types";
 
 const { Title } = Typography;
+
+/** 将 usage_type 代码映射为可读标签 */
+function formatUsageType(type: string): string {
+  const map: Record<string, string> = {
+    DCH: "数据中心",
+    COM: "商业",
+    ISP: "运营商",
+    EDU: "教育",
+    GOV: "政府",
+    MIL: "军事",
+    ORG: "组织",
+    RES: "住宅",
+    MOB: "移动网络",
+  };
+  return map[type] || type;
+}
 
 export default function AdminAuditLogsPage() {
   const { message } = App.useApp();
@@ -21,6 +37,9 @@ export default function AdminAuditLogsPage() {
   const [actionFilter, setActionFilter] = useState("");
   const [exportFormat, setExportFormat] = useState<"txt" | "markdown">("txt");
   const [exporting, setExporting] = useState(false);
+  const [ipModalOpen, setIpModalOpen] = useState(false);
+  const [selectedIpInfo, setSelectedIpInfo] = useState<IpInfo | null>(null);
+  const [ipModalTitle, setIpModalTitle] = useState("");
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -43,6 +62,12 @@ export default function AdminAuditLogsPage() {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+
+  const handleIpClick = (ip: string, ipInfo: IpInfo | null) => {
+    setIpModalTitle(ip);
+    setSelectedIpInfo(ipInfo);
+    setIpModalOpen(true);
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -78,7 +103,62 @@ export default function AdminAuditLogsPage() {
       ellipsis: true,
     },
     { title: "操作", dataIndex: "action", key: "action" },
-    { title: "IP 地址", dataIndex: "ip_address", key: "ip_address" },
+    {
+      title: "IP 地址",
+      dataIndex: "ip_address",
+      key: "ip_address",
+      render: (_: string, record: AuditLog) => (
+        <Button
+          type="link"
+          size="small"
+          icon={<GlobalOutlined />}
+          style={{ padding: 0, height: "auto" }}
+          onClick={() => handleIpClick(record.ip_address, record.ip_info)}
+          disabled={!record.ip_info}
+        >
+          {record.ip_address}
+        </Button>
+      ),
+    },
+    {
+      title: "位置",
+      key: "location",
+      render: (_: unknown, record: AuditLog) => {
+        if (!record.ip_info) return <Typography.Text type="secondary">—</Typography.Text>;
+        const { city_name, country_name, country_code } = record.ip_info;
+        return (
+          <Tooltip title={`${city_name}, ${record.ip_info.region_name}, ${country_name}`}>
+            {city_name}, {country_code}
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "代理/风控",
+      key: "risk",
+      width: 140,
+      align: "center",
+      render: (_: unknown, record: AuditLog) => {
+        if (!record.ip_info) return "—";
+        const { is_proxy, fraud_score } = record.ip_info;
+        return (
+          <Space size={4}>
+            {is_proxy ? (
+              <Tag icon={<WarningOutlined />} color="warning">代理</Tag>
+            ) : (
+              <Tag color="success">直连</Tag>
+            )}
+            {fraud_score > 0 && (
+              <Tooltip title={`欺诈风险评分: ${fraud_score}/100`}>
+                <Tag color={fraud_score >= 50 ? "error" : fraud_score >= 20 ? "warning" : "default"}>
+                  {fraud_score}
+                </Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
+    },
     {
       title: "设备名称",
       dataIndex: "device_name",
@@ -181,7 +261,7 @@ export default function AdminAuditLogsPage() {
         dataSource={logs}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1400 }}
         pagination={{
           current: page,
           pageSize,
@@ -193,6 +273,48 @@ export default function AdminAuditLogsPage() {
           },
         }}
       />
+      <Modal
+        title={
+          <Space>
+            <GlobalOutlined />
+            IP 详情：{ipModalTitle}
+          </Space>
+        }
+        open={ipModalOpen}
+        onCancel={() => setIpModalOpen(false)}
+        footer={null}
+        width={560}
+      >
+        {selectedIpInfo ? (
+          <Descriptions column={2} bordered size="small">
+            <Descriptions.Item label="国家/地区">
+              {selectedIpInfo.country_name} ({selectedIpInfo.country_code})
+            </Descriptions.Item>
+            <Descriptions.Item label="省/州">{selectedIpInfo.region_name}</Descriptions.Item>
+            <Descriptions.Item label="城市">{selectedIpInfo.city_name}</Descriptions.Item>
+            <Descriptions.Item label="时区">{selectedIpInfo.time_zone}</Descriptions.Item>
+            <Descriptions.Item label="纬度">{selectedIpInfo.latitude}</Descriptions.Item>
+            <Descriptions.Item label="经度">{selectedIpInfo.longitude}</Descriptions.Item>
+            <Descriptions.Item label="ISP" span={2}>{selectedIpInfo.isp}</Descriptions.Item>
+            <Descriptions.Item label="AS" span={2}>
+              {selectedIpInfo.as} (ASN {selectedIpInfo.asn})
+            </Descriptions.Item>
+            <Descriptions.Item label="用途类型">
+              {formatUsageType(selectedIpInfo.usage_type)}
+            </Descriptions.Item>
+            <Descriptions.Item label="代理/VPN">
+              {selectedIpInfo.is_proxy ? <Tag color="warning">是</Tag> : <Tag color="success">否</Tag>}
+            </Descriptions.Item>
+            <Descriptions.Item label="欺诈风险评分" span={2}>
+              <Tag color={selectedIpInfo.fraud_score >= 50 ? "error" : selectedIpInfo.fraud_score >= 20 ? "warning" : "success"}>
+                {selectedIpInfo.fraud_score} / 100
+              </Tag>
+            </Descriptions.Item>
+          </Descriptions>
+        ) : (
+          <Typography.Text type="secondary">无 IP 地理位置信息（私有/内网 IP）</Typography.Text>
+        )}
+      </Modal>
     </AdminLayout>
   );
 }

@@ -185,6 +185,22 @@ export interface AdminClient {
   reviewed_at: string | null;
 }
 
+export interface IpInfo {
+  country_code: string;
+  country_name: string;
+  region_name: string;
+  city_name: string;
+  latitude: number;
+  longitude: number;
+  time_zone: string;
+  asn: string;
+  as: string;
+  isp: string;
+  usage_type: string;
+  is_proxy: boolean;
+  fraud_score: number;
+}
+
 export interface AuditLog {
   id: string;
   user_id: string;
@@ -194,6 +210,7 @@ export interface AuditLog {
   device_name: string;
   signature: string;
   signature_valid: boolean | null;
+  ip_info: IpInfo | null;
   created_at: string;
 }
 
