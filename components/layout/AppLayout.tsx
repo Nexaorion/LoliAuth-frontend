@@ -14,6 +14,7 @@ import {
   Tag,
   Tooltip,
   Divider,
+  Drawer,
 } from "antd";
 import {
   UserOutlined,
@@ -24,6 +25,7 @@ import {
   CopyOutlined,
   CheckOutlined,
   SecurityScanOutlined,
+  MenuOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useAuthStore } from "@/stores/authStore";
@@ -65,6 +67,7 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
   } = theme.useToken();
   const [ready, setReady] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
 
@@ -216,24 +219,34 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
         }}
       >
         <div
-          style={{
-            fontWeight: 700,
-            fontSize: 18,
-            marginRight: 32,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
+          className="font-bold text-base sm:text-lg cursor-pointer whitespace-nowrap mr-4 sm:mr-8"
           onClick={() => router.push("/")}
         >
           {APP_NAME}
         </div>
-        <Menu
-          mode="horizontal"
-          selectedKeys={[selectedKey]}
-          items={navItems}
-          onClick={handleMenuClick}
-          style={{ flex: 1, border: "none" }}
+
+        <div className="hidden sm:flex" style={{ flex: 1, minWidth: 0 }}>
+          <Menu
+            mode="horizontal"
+            selectedKeys={[selectedKey]}
+            items={navItems}
+            onClick={handleMenuClick}
+            style={{ flex: 1, border: "none" }}
+          />
+        </div>
+
+        {/* Mobile spacer */}
+        <div className="flex-1 sm:hidden" />
+
+        {/* Mobile hamburger */}
+        <Button
+          className="sm:hidden"
+          type="text"
+          icon={<MenuOutlined />}
+          onClick={() => setDrawerOpen(true)}
+          style={{ marginRight: 4 }}
         />
+
         <Popover
           content={popoverContent}
           trigger="click"
@@ -254,9 +267,32 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           </Avatar>
         </Popover>
       </Header>
-      <Content style={{ padding: "24px 24px 48px", maxWidth: 1200, width: "100%", margin: "0 auto" }}>
+      <Content
+        className="px-4 pt-5 pb-12 sm:px-6 sm:pt-6 md:px-8"
+        style={{ maxWidth: 1200, width: "100%", margin: "0 auto" }}
+      >
         {children}
       </Content>
+
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        placement="left"
+        width={220}
+        title={APP_NAME}
+        styles={{ body: { padding: 0 } }}
+      >
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          items={navItems}
+          onClick={({ key }) => {
+            router.push(key);
+            setDrawerOpen(false);
+          }}
+          style={{ border: "none" }}
+        />
+      </Drawer>
     </Layout>
   );
 }

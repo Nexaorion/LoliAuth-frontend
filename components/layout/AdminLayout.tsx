@@ -2,18 +2,21 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Layout, Menu, theme, Spin } from "antd";
+import { Layout, Menu, theme, Spin, Button, Drawer } from "antd";
 import {
   UserOutlined,
   AppstoreOutlined,
   SafetyCertificateOutlined,
   FileTextOutlined,
   ArrowLeftOutlined,
+  MenuOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useAuthStore } from "@/stores/authStore";
 
 const { Sider, Content } = Layout;
+
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "LoliAuth";
 
 const siderItems: MenuProps["items"] = [
   { key: "/admin/users", icon: <UserOutlined />, label: "用户管理" },
@@ -40,6 +43,7 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
   const [ready, setReady] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     hydrate();
@@ -48,6 +52,7 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
 
   const handleMenuClick: MenuProps["onClick"] = ({ key }) => {
     router.push(key);
+    setDrawerOpen(false);
   };
 
   const selectedKey =
@@ -71,10 +76,39 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
     );
   }
 
+  const siderMenu = (
+    <Menu
+      mode="inline"
+      selectedKeys={[selectedKey]}
+      items={siderItems}
+      onClick={handleMenuClick}
+      style={{ border: "none", flex: 1 }}
+    />
+  );
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
+      <div
+        className="flex sm:hidden items-center sticky top-0 z-10"
+        style={{
+          height: 56,
+          padding: "0 16px",
+          background: colorBgContainer,
+          borderBottom: "1px solid #f0f0f0",
+          gap: 12,
+        }}
+      >
+        <Button
+          type="text"
+          icon={<MenuOutlined />}
+          onClick={() => setDrawerOpen(true)}
+        />
+        <span style={{ fontWeight: 700, fontSize: 16 }}>管理后台</span>
+      </div>
+
       <Sider
         width={220}
+        className="hidden sm:flex"
         style={{
           background: colorBgContainer,
           borderRight: "1px solid #f0f0f0",
@@ -97,19 +131,26 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
         >
           管理后台
         </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          items={siderItems}
-          onClick={handleMenuClick}
-          style={{ border: "none" }}
-        />
+        {siderMenu}
       </Sider>
+
+      {/* Mobile Drawer */}
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        placement="left"
+        width={220}
+        title={APP_NAME + " 管理"}
+        styles={{ body: { padding: 0 } }}
+      >
+        {siderMenu}
+      </Drawer>
+
       <Layout>
         <Content
+          className="m-3 sm:m-6"
           style={{
-            padding: 24,
-            margin: 24,
+            padding: "16px",
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
             minHeight: 280,

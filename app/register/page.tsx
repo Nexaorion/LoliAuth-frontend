@@ -198,7 +198,7 @@ export default function RegisterPage() {
           ]}
         >
           <Checkbox>
-            <span className="text-sm text-gray-600">
+            <span className="text-xs sm:text-sm text-gray-600">
               我已阅读并同意{" "}
               <a href="/terms" target="_blank" className="text-[#7c3aed] hover:underline">
                 用户协议
