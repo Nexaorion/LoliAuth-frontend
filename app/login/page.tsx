@@ -108,7 +108,7 @@ function LoginForm() {
           </Checkbox>
         </Form.Item>
 
-        <Form.Item style={{ marginBottom: 0 }}>
+        <Form.Item style={{ marginBottom: 12 }}>
           <Button
             type="primary"
             htmlType="submit"
@@ -120,6 +120,15 @@ function LoginForm() {
             登 录
           </Button>
         </Form.Item>
+
+        <div className="text-center">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-[#7c3aed] hover:underline"
+          >
+            忘记密码？
+          </Link>
+        </div>
       </Form>
     </AuthLayout>
   );

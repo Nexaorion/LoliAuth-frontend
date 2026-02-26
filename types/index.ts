@@ -213,6 +213,42 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface PasswordResetRequest {
+  verify_code: string;
+  new_password: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordVerifyRequest {
+  token: string;
+}
+
+export interface ForgotPasswordVerifyResponse {
+  valid: boolean;
+}
+
+export interface ForgotPasswordResetRequest {
+  token: string;
+  new_password: string;
+}
+
+export interface SendNewEmailCodeRequest {
+  old_code: string;
+  new_email: string;
+}
+
+export interface ChangeEmailRequest {
+  new_email: string;
+  new_code: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
 export interface UpdateUserRequest {
   status?: "active" | "disabled" | "suspended";
   role?: "user" | "admin";

@@ -23,6 +23,7 @@ import {
   DashboardOutlined,
   CopyOutlined,
   CheckOutlined,
+  SecurityScanOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useAuthStore } from "@/stores/authStore";
@@ -36,6 +37,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "LoliAuth";
 
 const navItems: MenuProps["items"] = [
   { key: "/profile", icon: <UserOutlined />, label: "个人信息" },
+  { key: "/security", icon: <SecurityScanOutlined />, label: "安全中心" },
   { key: "/developer/apps", icon: <AppstoreOutlined />, label: "应用管理" },
   { key: "/kyc", icon: <SafetyCertificateOutlined />, label: "实名认证" },
 ];

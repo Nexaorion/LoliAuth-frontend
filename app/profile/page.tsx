@@ -2,7 +2,10 @@
 
 import React from "react";
 import { Descriptions, Tag, Typography, Button, Space } from "antd";
-import { SafetyCertificateOutlined } from "@ant-design/icons";
+import {
+  SafetyCertificateOutlined,
+  SecurityScanOutlined,
+} from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/stores/authStore";
@@ -42,6 +45,13 @@ export default function ProfilePage() {
         </Descriptions.Item>
       </Descriptions>
       <Space style={{ marginTop: 24 }}>
+        <Button
+          icon={<SecurityScanOutlined />}
+          type="primary"
+          onClick={() => router.push("/security")}
+        >
+          安全中心
+        </Button>
         <Button
           icon={<SafetyCertificateOutlined />}
           onClick={() => router.push("/kyc")}
