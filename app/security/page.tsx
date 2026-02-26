@@ -14,6 +14,7 @@ import {
   Modal,
   Divider,
   Space,
+  Grid,
 } from "antd";
 import {
   MailOutlined,
@@ -95,6 +96,45 @@ function SecurityRow({
   action,
   last,
 }: SecurityRowProps) {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
+
+  if (isMobile) {
+    return (
+      <>
+        <div style={{ padding: "16px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <span
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: "#f5f0ff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#7c3aed",
+                fontSize: 16,
+                flexShrink: 0,
+              }}
+            >
+              {icon}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, lineHeight: "22px" }}>{title}</div>
+              <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 2 }}>{description}</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 48 }}>
+            <div style={{ color: "#595959", fontSize: 14 }}>{value}</div>
+            <div style={{ flexShrink: 0 }}>{action}</div>
+          </div>
+        </div>
+        {!last && <Divider style={{ margin: 0 }} />}
+      </>
+    );
+  }
+
   return (
     <>
       <div
