@@ -2,10 +2,12 @@
 
 import React, { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Form, Input, Button, Checkbox, App, Spin } from "antd";
-import { MailOutlined, LockOutlined } from "@ant-design/icons";
+import { Form, Input, Button, Checkbox, App, Spin, Divider } from "antd";
+import { MailOutlined, LockOutlined, KeyOutlined } from "@ant-design/icons";
 import AuthLayout from "@/components/layout/AuthLayout";
 import { useAuthStore } from "@/stores/authStore";
+import { setToken } from "@/lib/auth";
+import { passkeyLoginBegin, passkeyLoginFinish } from "@/lib/api/account";
 import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
 import Link from "next/link";
@@ -15,7 +17,9 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { message } = App.useApp();
   const login = useAuthStore((s) => s.login);
+  const loadProfile = useAuthStore((s) => s.loadProfile);
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
@@ -38,6 +42,42 @@ function LoginForm() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    setPasskeyLoading(true);
+    try {
+      const { decodeRequestOptions, serializeAssertionCredential, extractChallenge } = await import("@/lib/webauthn");
+      const options = await passkeyLoginBegin();
+      const challenge = extractChallenge(options);
+      const decodedOptions = decodeRequestOptions(options);
+      const credential = await navigator.credentials.get({ publicKey: decodedOptions });
+      if (!credential) {
+        message.error("Passkey 验证被取消");
+        return;
+      }
+      const serialized = serializeAssertionCredential(credential as PublicKeyCredential);
+      const res = await passkeyLoginFinish(challenge, serialized);
+      setToken(res.access_token, res.expires_in);
+      useAuthStore.setState({ token: res.access_token });
+      await loadProfile();
+      message.success("登录成功");
+      const redirect = searchParams.get("redirect") || "/profile";
+      router.push(redirect);
+    } catch (err) {
+      if ((err as DOMException)?.name === "NotAllowedError") {
+        message.error("操作被取消或设备不支持");
+      } else {
+        const error = err as AxiosError<ApiError>;
+        if (error.response?.status === 401) {
+          message.error("Passkey 验证失败");
+        } else {
+          message.error(error.response?.data?.error_description || "Passkey 登录失败");
+        }
+      }
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -129,6 +169,22 @@ function LoginForm() {
             忘记密码？
           </Link>
         </div>
+
+        <Divider plain style={{ margin: "16px 0 12px", fontSize: 12, color: "#8c8c8c" }}>
+          或
+        </Divider>
+
+        <Button
+          type="text"
+          block
+          size="large"
+          icon={<KeyOutlined />}
+          loading={passkeyLoading}
+          onClick={handlePasskeyLogin}
+          className="!text-[#7c3aed] hover:!bg-[#f5f0ff]"
+        >
+          通过 Passkey 登录
+        </Button>
       </Form>
     </AuthLayout>
   );

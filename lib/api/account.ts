@@ -14,6 +14,9 @@ import type {
   SendNewEmailCodeRequest,
   ChangeEmailRequest,
   MessageResponse,
+  Passkey,
+  PasskeyCreated,
+  RenamePasskeyRequest,
 } from "@/types";
 
 export async function sendRegisterCode(
@@ -111,6 +114,71 @@ export async function changeEmail(
   const res = await http.post<MessageResponse>(
     "/api/v1/account/email/change",
     data
+  );
+  return res.data;
+}
+
+export async function passkeyLoginBegin(): Promise<{ publicKey: PublicKeyCredentialRequestOptions }> {
+  const res = await http.post<{ publicKey: PublicKeyCredentialRequestOptions }>(
+    "/api/v1/account/passkey/login/begin"
+  );
+  return res.data;
+}
+
+export async function passkeyLoginFinish(
+  challenge: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  credential: any
+): Promise<LoginResponse> {
+  const res = await http.post<LoginResponse>(
+    `/api/v1/account/passkey/login/finish`,
+    credential,
+    { params: { challenge } }
+  );
+  return res.data;
+}
+
+export async function passkeyRegisterBegin(): Promise<{ publicKey: PublicKeyCredentialCreationOptions }> {
+  const res = await http.post<{ publicKey: PublicKeyCredentialCreationOptions }>(
+    "/api/v1/account/passkey/register/begin"
+  );
+  return res.data;
+}
+
+export async function passkeyRegisterFinish(
+  name: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  credential: any
+): Promise<PasskeyCreated> {
+  const res = await http.post<PasskeyCreated>(
+    `/api/v1/account/passkey/register/finish`,
+    credential,
+    { params: { name } }
+  );
+  return res.data;
+}
+
+export async function getPasskeys(): Promise<Passkey[]> {
+  const res = await http.get<Passkey[]>("/api/v1/account/passkey/list");
+  return res.data;
+}
+
+export async function renamePasskey(
+  passkeyId: string,
+  data: RenamePasskeyRequest
+): Promise<Passkey> {
+  const res = await http.put<Passkey>(
+    `/api/v1/account/passkey/${passkeyId}`,
+    data
+  );
+  return res.data;
+}
+
+export async function deletePasskey(
+  passkeyId: string
+): Promise<MessageResponse> {
+  const res = await http.delete<MessageResponse>(
+    `/api/v1/account/passkey/${passkeyId}`
   );
   return res.data;
 }

@@ -263,3 +263,24 @@ export interface KycAttemptsResponse {
   delta?: number;
   attempts_remaining: number;
 }
+
+export interface Passkey {
+  id: string;
+  name: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface PasskeyCreated {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface RenamePasskeyRequest {
+  name: string;
+}
+
+export interface AdminChangeEmailRequest {
+  new_email: string;
+}

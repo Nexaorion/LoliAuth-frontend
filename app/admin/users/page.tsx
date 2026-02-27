@@ -15,11 +15,27 @@ import {
   Form,
   Tooltip,
 } from "antd";
-import { SearchOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import {
+  SearchOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  MailOutlined,
+  LockOutlined,
+  SendOutlined,
+} from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { getUsers, updateUser, deleteUser, getAdminKycStatus } from "@/lib/api/admin";
+import {
+  getUsers,
+  updateUser,
+  deleteUser,
+  getAdminKycStatus,
+  adminChangeUserEmail,
+  adminResetUserPassword,
+} from "@/lib/api/admin";
 import type { AdminUser, UpdateUserRequest, KycStatus } from "@/types";
+import type { AxiosError } from "axios";
+import type { ApiError } from "@/types";
 
 const { Title } = Typography;
 
@@ -69,6 +85,10 @@ export default function AdminUsersPage() {
   const [kycCache, setKycCache] = useState<Record<string, KycStatus>>({});
   const [editLoading, setEditLoading] = useState(false);
   const [form] = Form.useForm();
+  const [emailModalUser, setEmailModalUser] = useState<AdminUser | null>(null);
+  const [emailForm] = Form.useForm();
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [resetPwdLoading, setResetPwdLoading] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -106,6 +126,45 @@ export default function AdminUsersPage() {
   const handleEdit = (user: AdminUser) => {
     setEditModal(user);
     form.setFieldsValue({ status: user.status, role: user.role });
+  };
+
+  const handleResetPassword = async (user: AdminUser) => {
+    setResetPwdLoading(true);
+    try {
+      await adminResetUserPassword(user.id);
+      message.success(`密码重置链接已发送至 ${user.email}`);
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      if (error.response?.status === 429) {
+        message.error("发送过于频繁，请等待 60 秒后再试");
+      } else {
+        message.error(error.response?.data?.error_description || "发送重置链接失败");
+      }
+    } finally {
+      setResetPwdLoading(false);
+    }
+  };
+
+  const handleChangeEmail = async () => {
+    if (!emailModalUser) return;
+    setEmailLoading(true);
+    try {
+      const values = await emailForm.validateFields();
+      await adminChangeUserEmail(emailModalUser.id, { new_email: values.new_email });
+      message.success("邮箱修改成功");
+      setEmailModalUser(null);
+      emailForm.resetFields();
+      fetchUsers();
+    } catch (err) {
+      if ((err as { errorFields?: unknown }).errorFields) return;
+      const error = err as AxiosError<ApiError>;
+      const status = error.response?.status;
+      if (status === 400) message.error("邮箱格式错误或与当前邮箱相同");
+      else if (status === 409) message.error("该邮箱已被其他用户注册");
+      else message.error(error.response?.data?.error_description || "修改邮箱失败");
+    } finally {
+      setEmailLoading(false);
+    }
   };
 
   const handleEditSubmit = async () => {
@@ -288,6 +347,72 @@ export default function AdminUsersPage() {
                 { value: "user", label: "用户" },
                 { value: "admin", label: "管理员" },
               ]}
+            />
+          </Form.Item>
+        </Form>
+
+        <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 16, marginTop: 8 }}>
+          <Typography.Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+            安全操作
+          </Typography.Text>
+          <Space>
+            <Popconfirm
+              title="确认发送密码重置链接？"
+              description={`将向 ${editModal?.email} 发送密码重置邮件`}
+              onConfirm={() => editModal && handleResetPassword(editModal)}
+            >
+              <Button
+                icon={<LockOutlined />}
+                loading={resetPwdLoading}
+              >
+                重置密码
+              </Button>
+            </Popconfirm>
+            <Button
+              icon={<MailOutlined />}
+              onClick={() => {
+                if (editModal) {
+                  setEmailModalUser(editModal);
+                  emailForm.setFieldsValue({ new_email: "" });
+                }
+              }}
+            >
+              修改邮箱
+            </Button>
+          </Space>
+        </div>
+      </Modal>
+
+      <Modal
+        title="修改用户邮箱"
+        open={!!emailModalUser}
+        onCancel={() => {
+          setEmailModalUser(null);
+          emailForm.resetFields();
+        }}
+        onOk={handleChangeEmail}
+        confirmLoading={emailLoading}
+        okText="确认修改"
+      >
+        {emailModalUser && (
+          <div style={{ marginBottom: 16 }}>
+            <Typography.Text type="secondary">
+              当前邮箱：{emailModalUser.email}
+            </Typography.Text>
+          </div>
+        )}
+        <Form form={emailForm} layout="vertical">
+          <Form.Item
+            name="new_email"
+            label="新邮箱地址"
+            rules={[
+              { required: true, message: "请输入新邮箱" },
+              { type: "email", message: "请输入有效的邮箱地址" },
+            ]}
+          >
+            <Input
+              prefix={<SendOutlined style={{ color: "#bfbfbf" }} />}
+              placeholder="请输入新的邮箱地址"
             />
           </Form.Item>
         </Form>

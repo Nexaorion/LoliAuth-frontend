@@ -9,6 +9,8 @@ import type {
   UpdateClientStatusRequest,
   KycStatus,
   KycAttemptsResponse,
+  AdminChangeEmailRequest,
+  MessageResponse,
 } from "@/types";
 
 export async function getUsers(params?: {
@@ -46,6 +48,26 @@ export async function deleteUser(
 ): Promise<{ message: string }> {
   const res = await http.delete<{ message: string }>(
     `/api/v1/admin/users/${userId}`
+  );
+  return res.data;
+}
+
+export async function adminChangeUserEmail(
+  userId: string,
+  data: AdminChangeEmailRequest
+): Promise<AdminUser> {
+  const res = await http.put<AdminUser>(
+    `/api/v1/admin/users/${userId}/email`,
+    data
+  );
+  return res.data;
+}
+
+export async function adminResetUserPassword(
+  userId: string
+): Promise<MessageResponse> {
+  const res = await http.post<MessageResponse>(
+    `/api/v1/admin/users/${userId}/reset-password`
   );
   return res.data;
 }

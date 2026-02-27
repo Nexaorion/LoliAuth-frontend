@@ -15,6 +15,10 @@ import {
   Divider,
   Space,
   Grid,
+  List,
+  Empty,
+  Popconfirm,
+  Tooltip,
 } from "antd";
 import {
   MailOutlined,
@@ -26,6 +30,9 @@ import {
   ArrowRightOutlined,
   ExclamationCircleOutlined,
   EditOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  UsbOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
@@ -36,10 +43,15 @@ import {
   sendOldEmailCode,
   sendNewEmailCode,
   changeEmail,
+  getPasskeys,
+  passkeyRegisterBegin,
+  passkeyRegisterFinish,
+  renamePasskey,
+  deletePasskey,
 } from "@/lib/api/account";
 import { getKycStatus } from "@/lib/api/kyc";
 import type { AxiosError } from "axios";
-import type { ApiError, KycStatus } from "@/types";
+import type { ApiError, KycStatus, Passkey } from "@/types";
 
 const { Title, Text } = Typography;
 
@@ -651,18 +663,98 @@ function KycModal({ open, onClose, kycStatus }: KycModalProps) {
 
 export default function SecurityPage() {
   const user = useAuthStore((s) => s.user);
+  const { message } = App.useApp();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
   const [kycLoading, setKycLoading] = useState(true);
 
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [passkeysLoading, setPasskeysLoading] = useState(true);
+  const [passkeyRegistering, setPasskeyRegistering] = useState(false);
+  const [renameModalPasskey, setRenameModalPasskey] = useState<Passkey | null>(null);
+  const [renameForm] = Form.useForm();
+  const [renameLoading, setRenameLoading] = useState(false);
+
+  const fetchPasskeys = useCallback(async () => {
+    try {
+      const list = await getPasskeys();
+      setPasskeys(list);
+    } catch {
+      // silently fail
+    } finally {
+      setPasskeysLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     getKycStatus()
       .then(setKycStatus)
       .catch(() => {})
       .finally(() => setKycLoading(false));
-  }, []);
+    fetchPasskeys();
+  }, [fetchPasskeys]);
+
+  const handleAddPasskey = async () => {
+    setPasskeyRegistering(true);
+    try {
+      const { decodeCreationOptions, serializeCreationCredential, extractChallenge } = await import("@/lib/webauthn");
+      const options = await passkeyRegisterBegin();
+      const challenge = extractChallenge(options);
+      void challenge;
+      const decodedOptions = decodeCreationOptions(options);
+      const credential = await navigator.credentials.create({ publicKey: decodedOptions });
+      if (!credential) {
+        message.error("Passkey 创建被取消");
+        return;
+      }
+      const serialized = serializeCreationCredential(credential as PublicKeyCredential);
+      const deviceName = navigator.platform || "Passkey";
+      await passkeyRegisterFinish(deviceName, serialized);
+      message.success("Passkey 添加成功");
+      fetchPasskeys();
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      if ((err as DOMException)?.name === "NotAllowedError") {
+        message.error("操作被取消或设备不支持");
+      } else {
+        message.error(error.response?.data?.error_description || "添加 Passkey 失败");
+      }
+    } finally {
+      setPasskeyRegistering(false);
+    }
+  };
+
+  const handleRenamePasskey = async () => {
+    if (!renameModalPasskey) return;
+    setRenameLoading(true);
+    try {
+      const values = await renameForm.validateFields();
+      await renamePasskey(renameModalPasskey.id, { name: values.name });
+      message.success("重命名成功");
+      setRenameModalPasskey(null);
+      renameForm.resetFields();
+      fetchPasskeys();
+    } catch (err) {
+      if ((err as { errorFields?: unknown }).errorFields) return;
+      const error = err as AxiosError<ApiError>;
+      message.error(error.response?.data?.error_description || "重命名失败");
+    } finally {
+      setRenameLoading(false);
+    }
+  };
+
+  const handleDeletePasskey = async (passkeyId: string) => {
+    try {
+      await deletePasskey(passkeyId);
+      message.success("Passkey 已删除");
+      fetchPasskeys();
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      message.error(error.response?.data?.error_description || "删除失败");
+    }
+  };
 
   const kycStatusVal = kycStatus?.status ?? "none";
   const kycConfig = kycStatusConfig[kycStatusVal] ?? kycStatusConfig.none;
@@ -735,6 +827,105 @@ export default function SecurityPage() {
           last
         />
       </Card>
+      <Card
+        title={
+          <Space>
+            <UsbOutlined style={{ color: "#7c3aed" }} />
+            <span>安全密钥</span>
+          </Space>
+        }
+        extra={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            loading={passkeyRegistering}
+            onClick={handleAddPasskey}
+            size="small"
+          >
+            添加 Passkey
+          </Button>
+        }
+        style={{ maxWidth: 860, marginTop: 16 }}
+      >
+        <Text type="secondary" style={{ display: "block", marginBottom: 16, fontSize: 13 }}>
+          Passkey 支持使用指纹、面容识别或硬件安全密钥登录，无需密码
+        </Text>
+
+        {passkeysLoading ? (
+          <div style={{ textAlign: "center", padding: 24 }}>
+            <Spin />
+          </div>
+        ) : passkeys.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="暂未添加任何 Passkey"
+          />
+        ) : (
+          <List
+            dataSource={passkeys}
+            renderItem={(item) => (
+              <List.Item
+                actions={[
+                  <Tooltip title="重命名" key="rename">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => {
+                        setRenameModalPasskey(item);
+                        renameForm.setFieldsValue({ name: item.name });
+                      }}
+                    />
+                  </Tooltip>,
+                  <Popconfirm
+                    key="delete"
+                    title="确认删除此 Passkey？"
+                    description="删除后将无法使用此密钥登录"
+                    onConfirm={() => handleDeletePasskey(item.id)}
+                  >
+                    <Tooltip title="删除">
+                      <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                    </Tooltip>
+                  </Popconfirm>,
+                ]}
+              >
+                <List.Item.Meta
+                  avatar={
+                    <span
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        background: "#f5f0ff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#7c3aed",
+                        fontSize: 16,
+                      }}
+                    >
+                      <KeyOutlined />
+                    </span>
+                  }
+                  title={item.name}
+                  description={
+                    <Space split={<Divider type="vertical" />} size={0}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        添加于 {new Date(item.created_at).toLocaleDateString("zh-CN")}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {item.last_used_at
+                          ? `最近使用 ${new Date(item.last_used_at).toLocaleDateString("zh-CN")}`
+                          : "从未使用"}
+                      </Text>
+                    </Space>
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </Card>
 
       <EmailModal open={emailModalOpen} onClose={() => setEmailModalOpen(false)} />
       <PasswordModal open={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
@@ -743,6 +934,27 @@ export default function SecurityPage() {
         onClose={() => setKycModalOpen(false)}
         kycStatus={kycStatus}
       />
+      <Modal
+        title="重命名 Passkey"
+        open={!!renameModalPasskey}
+        onCancel={() => {
+          setRenameModalPasskey(null);
+          renameForm.resetFields();
+        }}
+        onOk={handleRenamePasskey}
+        confirmLoading={renameLoading}
+        okText="确认"
+      >
+        <Form form={renameForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="name"
+            label="名称"
+            rules={[{ required: true, message: "请输入 Passkey 名称" }]}
+          >
+            <Input placeholder="例如：MacBook Pro、iPhone 17" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </AppLayout>
   );
 }
