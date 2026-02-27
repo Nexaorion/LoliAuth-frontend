@@ -46,7 +46,9 @@ const navItems: MenuProps["items"] = [
 ];
 
 function truncateId(id: string) {
-  return id.length > 15 ? id.slice(0, 15) + "…" : id;
+  if (!id) return "";
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 6)}…${id.slice(-4)}`;
 }
 
 function displayName(email?: string) {
@@ -145,7 +147,7 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
       {/* KYC tag */}
       <div style={{ paddingBottom: 12 }}>
         <Tag color={isVerified ? "blue" : "orange"} icon={<SafetyCertificateOutlined />}>
-          {isVerified ? "已实名认证" : "未实名认证"}
+          {isVerified ? "已认证" : "未认证"}
         </Tag>
       </div>
 
@@ -337,11 +339,8 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
             </div>
           </div>
           <div style={{ marginTop: 10 }}>
-            <Tag
-              color={isVerified ? "blue" : "orange"}
-              icon={<SafetyCertificateOutlined />}
-            >
-              {isVerified ? "已实名认证" : "未实名认证"}
+            <Tag color={isVerified ? "blue" : "orange"} icon={<SafetyCertificateOutlined />}>
+              {isVerified ? "已认证" : "未认证"}
             </Tag>
           </div>
         </div>
