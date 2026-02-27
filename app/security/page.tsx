@@ -137,8 +137,8 @@ function SecurityRow({
               <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 2 }}>{description}</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 48 }}>
-            <div style={{ color: "#595959", fontSize: 14 }}>{value}</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", paddingLeft: 48, gap: 8 }}>
+            {value != null && <div style={{ color: "#595959", fontSize: 14 }}>{value}</div>}
             <div style={{ flexShrink: 0 }}>{action}</div>
           </div>
         </div>
@@ -190,7 +190,8 @@ function SecurityRow({
             </div>
           </div>
         </div>
-        <div style={{ flex: 1, color: "#595959", fontSize: 14 }}>{value}</div>
+        <div style={{ flex: 1 }} />
+        {value != null && <div style={{ color: "#595959", fontSize: 14 }}>{value}</div>}
         <div style={{ flexShrink: 0 }}>{action}</div>
       </div>
       {!last && <Divider style={{ margin: 0 }} />}
@@ -790,7 +791,7 @@ export default function SecurityPage() {
           icon={<KeyOutlined />}
           title="登录密码"
           description="登录账号时需要输入的密码"
-          value={<Text type="secondary">已设置</Text>}
+          value={null}
           action={
             <Button
               type="link"
@@ -806,15 +807,7 @@ export default function SecurityPage() {
           icon={<SafetyCertificateOutlined />}
           title="实名认证"
           description="完成认证后，第三方应用可在你授权时获取身份信息"
-          value={
-            kycLoading ? (
-              <Spin size="small" />
-            ) : (
-              <Tag color={kycConfig.color} icon={kycConfig.icon} style={{ margin: 0 }}>
-                {kycConfig.text}
-              </Tag>
-            )
-          }
+          value={kycLoading ? <Spin size="small" /> : null}
           action={
             <Button
               type="link"
