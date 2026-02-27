@@ -11,12 +11,16 @@ import {
   Spin,
   Result,
   Space,
-  Tag,
 } from "antd";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ExclamationCircleOutlined,
+  UserOutlined,
+  MailOutlined,
+  IdcardOutlined,
+  ContactsOutlined,
+  KeyOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
 import { authorize, consent } from "@/lib/api/oauth";
 import type { AuthorizeConsentResponse } from "@/types";
@@ -25,13 +29,109 @@ import type { ApiError } from "@/types";
 
 const { Title, Text, Paragraph } = Typography;
 
-const SCOPE_LABELS: Record<string, string> = {
-  openid: "获取你的用户标识",
-  profile: "获取你的个人资料",
-  email: "获取你的邮箱地址",
-  realname: "获取你的实名认证姓名",
-  real_id_number: "获取你的身份证号码",
+interface ScopeDisplay {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  sensitive?: boolean;
+  color: string;
+}
+
+const SCOPE_DISPLAY: Record<string, ScopeDisplay> = {
+  openid: {
+    icon: <KeyOutlined />,
+    title: "用户唯一标识",
+    description: "应用将获取你的唯一账号 ID，用于识别你的身份",
+    color: "#1677ff",
+  },
+  profile: {
+    icon: <UserOutlined />,
+    title: "基本个人资料",
+    description: "应用将获取你的用户名、头像等基本信息",
+    color: "#52c41a",
+  },
+  email: {
+    icon: <MailOutlined />,
+    title: "电子邮箱地址",
+    description: "应用将获取你的注册邮箱地址",
+    color: "#1677ff",
+  },
+  realname: {
+    icon: <ContactsOutlined />,
+    title: "实名认证姓名",
+    description: "应用将获取你通过实名认证的真实姓名",
+    sensitive: true,
+    color: "#fa8c16",
+  },
+  real_id_number: {
+    icon: <IdcardOutlined />,
+    title: "身份证号码",
+    description: "应用将获取你的身份证号码（敏感信息）",
+    sensitive: true,
+    color: "#f5222d",
+  },
 };
+
+function ScopeItem({ scope }: { scope: string }) {
+  const display = SCOPE_DISPLAY[scope] ?? {
+    icon: <UserOutlined />,
+    title: scope,
+    description: `授权访问 ${scope}`,
+    color: "#8c8c8c",
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: "10px 0",
+      }}
+    >
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          background: display.sensitive
+            ? "rgba(250,130,22,0.12)"
+            : `${display.color}18`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 18,
+          color: display.color,
+          flexShrink: 0,
+        }}
+      >
+        {display.icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 2,
+          }}
+        >
+          <Text strong style={{ fontSize: 14 }}>
+            {display.title}
+          </Text>
+          {display.sensitive && (
+            <WarningOutlined
+              style={{ color: "#fa8c16", fontSize: 13 }}
+            />
+          )}
+        </div>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {display.description}
+        </Text>
+      </div>
+    </div>
+  );
+}
 
 function AuthorizeContent() {
   const searchParams = useSearchParams();
@@ -156,20 +256,16 @@ function AuthorizeContent() {
 
         <List
           dataSource={consentData.scopes}
-          renderItem={(scope) => {
-            const isSensitive = scope === "realname" || scope === "real_id_number";
-            return (
-              <List.Item>
-                <Tag color={isSensitive ? "orange" : "blue"}>
-                  {isSensitive && <ExclamationCircleOutlined style={{ marginRight: 4 }} />}
-                  {scope}
-                </Tag>
-                <Text type={isSensitive ? "warning" : undefined}>
-                  {SCOPE_LABELS[scope] || scope}
-                </Text>
-              </List.Item>
-            );
-          }}
+          renderItem={(scope) => (
+            <List.Item
+              style={{
+                borderBottom: "1px solid #f0f0f0",
+                padding: "0 4px",
+              }}
+            >
+              <ScopeItem scope={scope} />
+            </List.Item>
+          )}
           style={{ marginBottom: 24 }}
         />
 

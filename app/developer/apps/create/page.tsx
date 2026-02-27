@@ -16,8 +16,8 @@ import {
   Col,
   Card,
   List,
-  Tag,
   Divider,
+  Tooltip,
 } from "antd";
 import {
   MinusCircleOutlined,
@@ -25,9 +25,15 @@ import {
   CopyOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ExclamationCircleOutlined,
   AppstoreOutlined,
   EyeOutlined,
+  UserOutlined,
+  MailOutlined,
+  IdcardOutlined,
+  ContactsOutlined,
+  KeyOutlined,
+  WarningOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
@@ -51,12 +57,47 @@ const GRANT_TYPE_OPTIONS = [
   { label: "client_credentials", value: "client_credentials" },
 ];
 
-const SCOPE_LABELS: Record<string, string> = {
-  openid: "获取你的用户标识",
-  profile: "获取你的个人资料",
-  email: "获取你的邮箱地址",
-  realname: "获取你的实名认证姓名",
-  real_id_number: "获取你的身份证号码",
+interface ScopeDisplay {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  sensitive?: boolean;
+  color: string;
+}
+
+const SCOPE_DISPLAY: Record<string, ScopeDisplay> = {
+  openid: {
+    icon: <KeyOutlined />,
+    title: "用户唯一标识",
+    description: "应用将获取你的唯一账号 ID，用于识别你的身份",
+    color: "#1677ff",
+  },
+  profile: {
+    icon: <UserOutlined />,
+    title: "基本个人资料",
+    description: "应用将获取你的用户名、头像等基本信息",
+    color: "#52c41a",
+  },
+  email: {
+    icon: <MailOutlined />,
+    title: "电子邮箱地址",
+    description: "应用将获取你的注册邮箱地址",
+    color: "#1677ff",
+  },
+  realname: {
+    icon: <ContactsOutlined />,
+    title: "实名认证姓名",
+    description: "应用将获取你通过实名认证的真实姓名",
+    sensitive: true,
+    color: "#fa8c16",
+  },
+  real_id_number: {
+    icon: <IdcardOutlined />,
+    title: "身份证号码",
+    description: "应用将获取你的身份证号码（敏感信息）",
+    sensitive: true,
+    color: "#f5222d",
+  },
 };
 
 interface ConsentPreviewProps {
@@ -133,29 +174,71 @@ function ConsentPreview({ appName, scopes }: ConsentPreviewProps) {
           <List
             dataSource={displayScopes}
             renderItem={(scope) => {
-              const isSensitive =
-                scope === "realname" || scope === "real_id_number";
+              const display = SCOPE_DISPLAY[scope] ?? {
+                icon: <UserOutlined />,
+                title: scope,
+                description: `授权访问 ${scope}`,
+                color: "#8c8c8c",
+              };
               return (
-                <List.Item style={{ padding: "8px 0", border: "none" }}>
-                  <Space>
-                    <Tag
-                      color={isSensitive ? "orange" : "blue"}
-                      style={{ margin: 0 }}
+                <List.Item
+                  style={{
+                    padding: "6px 0",
+                    border: "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      width: "100%",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        background: display.sensitive
+                          ? "rgba(250,130,22,0.12)"
+                          : `${display.color}18`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 15,
+                        color: display.color,
+                        flexShrink: 0,
+                      }}
                     >
-                      {isSensitive && (
-                        <ExclamationCircleOutlined
-                          style={{ marginRight: 4 }}
-                        />
-                      )}
-                      {scope}
-                    </Tag>
-                    <Text
-                      type={isSensitive ? "warning" : undefined}
-                      style={{ fontSize: 13 }}
-                    >
-                      {SCOPE_LABELS[scope] || scope}
-                    </Text>
-                  </Space>
+                      {display.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          marginBottom: 1,
+                        }}
+                      >
+                        <Text strong style={{ fontSize: 12 }}>
+                          {display.title}
+                        </Text>
+                        {display.sensitive && (
+                          <WarningOutlined
+                            style={{ color: "#fa8c16", fontSize: 11 }}
+                          />
+                        )}
+                      </div>
+                      <Text
+                        type="secondary"
+                        style={{ fontSize: 11, lineHeight: 1.3 }}
+                      >
+                        {display.description}
+                      </Text>
+                    </div>
+                  </div>
                 </List.Item>
               );
             }}
@@ -359,7 +442,32 @@ export default function CreateAppPage() {
 
             <Form.Item
               name="is_confidential"
-              label="机密客户端"
+              label={
+                <Space size={4}>
+                  机密客户端
+                  <Tooltip
+                    title={
+                      <div>
+                        <p style={{ margin: "0 0 6px", fontWeight: 600 }}>
+                          什么是机密客户端？
+                        </p>
+                        <p style={{ margin: "0 0 6px" }}>
+                          机密客户端是能够安全保管 Client Secret 的应用，通常是运行在服务器端的后端服务。
+                        </p>
+                        <p style={{ margin: 0 }}>
+                          开启后，应用在换取 Token 时必须提供正确的 Client
+                          Secret，安全性更高。若你的应用是移动端、浏览器扩展等公开客户端（无法安全存储密钥），应关闭此选项。
+                        </p>
+                      </div>
+                    }
+                    overlayStyle={{ maxWidth: 320 }}
+                  >
+                    <InfoCircleOutlined
+                      style={{ color: "#8c8c8c", cursor: "help" }}
+                    />
+                  </Tooltip>
+                </Space>
+              }
               valuePropName="checked"
             >
               <Switch checkedChildren="是" unCheckedChildren="否" />
