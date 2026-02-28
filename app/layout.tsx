@@ -12,6 +12,13 @@ export const metadata = {
 
 const RootLayout = ({ children }: React.PropsWithChildren) => (
   <html lang="zh-CN">
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta charSet="utf-8" />
+      <meta name="cryptomus" content="a41157c1" />
+      <link rel="icon" href="/Nexaorion-Logo-purple.png" type="image/png" />
+      <title>LoliAuth</title>
+    </head>
     <body>
       <AntdRegistry>
         <ConfigProvider
