@@ -1,86 +1,60 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Table, Input, Space, Typography, App, Button, Select, Tooltip, Tag, Modal, Descriptions } from "antd";
 import { SearchOutlined, DownloadOutlined, GlobalOutlined, WarningOutlined, CodeOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { getAuditLogs, exportAuditLogs } from "@/lib/api/admin";
 import type { AuditLog, IpInfo } from "@/types";
+import hljs from "highlight.js/lib/core";
+import json from "highlight.js/lib/languages/json";
+import "highlight.js/styles/github-dark.css";
+
+hljs.registerLanguage("json", json);
 
 const { Title } = Typography;
 
-function JsonCodeViewer({ json }: { json: unknown }) {
+function JsonCodeViewer({ json: value }: { json: unknown }) {
+  const codeRef = useRef<HTMLElement>(null);
+
   let formatted: string;
-  if (typeof json === "string") {
+  if (typeof value === "string") {
     try {
-      formatted = JSON.stringify(JSON.parse(json), null, 2);
+      formatted = JSON.stringify(JSON.parse(value), null, 2);
     } catch {
-      formatted = json;
+      formatted = value;
     }
   } else {
     try {
-      formatted = JSON.stringify(json, null, 2);
+      formatted = JSON.stringify(value, null, 2);
     } catch {
-      formatted = String(json);
+      formatted = String(value);
     }
   }
-  const lines = formatted.split("\n");
-  const lineNumberWidth = String(lines.length).length;
+
+  useEffect(() => {
+    if (codeRef.current) {
+      codeRef.current.removeAttribute("data-highlighted");
+      hljs.highlightElement(codeRef.current);
+    }
+  }, [formatted]);
 
   return (
-    <div
+    <pre
       style={{
-        background: "#0d1117",
+        margin: 0,
         borderRadius: 6,
         overflow: "auto",
         maxHeight: 480,
-        fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
         fontSize: 13,
         lineHeight: "20px",
-        border: "1px solid #30363d",
       }}
     >
-      <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "max-content" }}>
-        <tbody>
-          {lines.map((line, index) => (
-            <tr
-              key={index}
-              style={{ display: "table-row" }}
-            >
-              <td
-                style={{
-                  userSelect: "none",
-                  textAlign: "right",
-                  paddingLeft: 16,
-                  paddingRight: 12,
-                  minWidth: lineNumberWidth * 8 + 32,
-                  color: "#6e7681",
-                  borderRight: "1px solid #21262d",
-                  verticalAlign: "top",
-                  background: "#0d1117",
-                  position: "sticky",
-                  left: 0,
-                }}
-              >
-                {index + 1}
-              </td>
-              <td
-                style={{
-                  paddingLeft: 16,
-                  paddingRight: 16,
-                  color: "#e6edf3",
-                  whiteSpace: "pre",
-                  verticalAlign: "top",
-                }}
-              >
-                {line || " "}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+      <code ref={codeRef} className="language-json">
+        {formatted}
+      </code>
+    </pre>
   );
 }
 
