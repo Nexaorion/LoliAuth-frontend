@@ -11,6 +11,7 @@ import { passkeyLoginBegin, passkeyLoginFinish } from "@/lib/api/account";
 import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
 import Link from "next/link";
+import PolicyModal from "@/components/ui/PolicyModal";
 
 function LoginForm() {
   const router = useRouter();
@@ -20,6 +21,8 @@ function LoginForm() {
   const loadProfile = useAuthStore((s) => s.loadProfile);
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [policyModal, setPolicyModal] = useState<"user" | "privacy" | null>(null);
+  const [form] = Form.useForm();
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
@@ -81,6 +84,10 @@ function LoginForm() {
     }
   };
 
+  const handleAgreePolicy = () => {
+    setPolicyModal(null);
+  };
+
   return (
     <AuthLayout
       title="登录你的账户"
@@ -94,7 +101,21 @@ function LoginForm() {
         </span>
       }
     >
-      <Form layout="vertical" onFinish={onFinish} autoComplete="off" requiredMark={false}>
+      <PolicyModal
+        title="用户协议"
+        open={policyModal === "user"}
+        policyUrl="/policies/user-agreement.md"
+        onAgree={() => handleAgreePolicy()}
+        onCancel={() => setPolicyModal(null)}
+      />
+      <PolicyModal
+        title="隐私政策"
+        open={policyModal === "privacy"}
+        policyUrl="/policies/privacy-policy.md"
+        onAgree={() => handleAgreePolicy()}
+        onCancel={() => setPolicyModal(null)}
+      />
+      <Form form={form} layout="vertical" onFinish={onFinish} autoComplete="off" requiredMark={false}>
         <Form.Item
           name="email"
           label={<span className="font-medium text-gray-700">邮箱</span>}
@@ -137,11 +158,19 @@ function LoginForm() {
           <Checkbox>
             <span className="text-xs sm:text-sm text-gray-600">
               我已阅读并同意{" "}
-              <a href="/terms" target="_blank" className="text-[#7c3aed] hover:underline">
+              <a
+                className="text-[#7c3aed] hover:underline"
+                onClick={(e) => { e.preventDefault(); setPolicyModal("user"); }}
+                style={{ cursor: "pointer" }}
+              >
                 用户协议
               </a>{" "}
               和{" "}
-              <a href="/privacy" target="_blank" className="text-[#7c3aed] hover:underline">
+              <a
+                className="text-[#7c3aed] hover:underline"
+                onClick={(e) => { e.preventDefault(); setPolicyModal("privacy"); }}
+                style={{ cursor: "pointer" }}
+              >
                 隐私政策
               </a>
             </span>
