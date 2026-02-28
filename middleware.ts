@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const TOKEN_KEY = process.env.NEXT_PUBLIC_TOKEN_COOKIE_KEY || "loliauth_token";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/verify"];
-const PROTECTED_PATHS = ["/profile", "/developer", "/kyc", "/oauth/authorize", "/admin", "/security"];
+const PROTECTED_PATHS = ["/profile", "/developer", "/kyc", "/oauth/authorize", "/admin", "/security", "/balance"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -42,5 +42,6 @@ export const config = {
     "/oauth/:path*",
     "/admin/:path*",
     "/security/:path*",
+    "/balance/:path*",
   ],
 };

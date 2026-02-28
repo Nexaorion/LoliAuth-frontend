@@ -16,7 +16,9 @@ import {
   Divider,
   Drawer,
   Grid,
+  message,
 } from "antd";
+import PolicyModal from "@/components/ui/PolicyModal";
 import {
   UserOutlined,
   AppstoreOutlined,
@@ -27,11 +29,13 @@ import {
   CheckOutlined,
   SecurityScanOutlined,
   MenuOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useAuthStore } from "@/stores/authStore";
 import { getKycStatus } from "@/lib/api/kyc";
-import type { KycStatus } from "@/types";
+import { getWallet, activateWallet } from "@/lib/api/billing";
+import type { KycStatus, Wallet } from "@/types";
 
 const { Text } = Typography;
 const { Header, Content } = Layout;
@@ -74,6 +78,10 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [walletLoaded, setWalletLoaded] = useState(false);
+  const [activateModalOpen, setActivateModalOpen] = useState(false);
+  const [activating, setActivating] = useState(false);
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
 
@@ -86,13 +94,25 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
     }
   }, []);
 
+  const fetchWallet = useCallback(async () => {
+    try {
+      const w = await getWallet();
+      setWallet(w);
+    } catch {
+      setWallet(null);
+    } finally {
+      setWalletLoaded(true);
+    }
+  }, []);
+
   useEffect(() => {
     hydrate();
     loadProfile().finally(() => {
       setReady(true);
       fetchKycStatus();
+      fetchWallet();
     });
-  }, [hydrate, loadProfile, fetchKycStatus]);
+  }, [hydrate, loadProfile, fetchKycStatus, fetchWallet]);
 
   const handleMenuClick: MenuProps["onClick"] = ({ key }) => {
     router.push(key);
@@ -109,6 +129,31 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const handleBalanceClick = () => {
+    if (walletLoaded && (!wallet || !wallet.activated)) {
+      setActivateModalOpen(true);
+      setPopoverOpen(false);
+    } else {
+      setPopoverOpen(false);
+      router.push("/balance");
+    }
+  };
+
+  const handleActivateWallet = async () => {
+    setActivating(true);
+    try {
+      const w = await activateWallet();
+      setWallet(w);
+      setActivateModalOpen(false);
+      message.success("钱包开通成功");
+      router.push("/balance");
+    } catch {
+      message.error("开通失败，请稍后再试");
+    } finally {
+      setActivating(false);
+    }
   };
 
   const isVerified = kycStatus?.status === "success";
@@ -169,6 +214,23 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           </Button>
         </>
       )}
+
+      <Divider style={{ margin: "8px 0" }} />
+
+      <Button
+        type="text"
+        icon={<WalletOutlined />}
+        block
+        style={{ textAlign: "left" }}
+        onClick={handleBalanceClick}
+      >
+        余额
+        {walletLoaded && wallet?.activated && (
+          <span style={{ marginLeft: 8, color: "#8c8c8c", fontSize: 12 }}>
+            ${(wallet.balance / 100).toFixed(2)}
+          </span>
+        )}
+      </Button>
 
       <Divider style={{ margin: "8px 0" }} />
 
@@ -377,6 +439,24 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
 
         <Button
           type="text"
+          icon={<WalletOutlined />}
+          block
+          style={{ textAlign: "left", margin: "4px 0" }}
+          onClick={() => {
+            setDrawerOpen(false);
+            handleBalanceClick();
+          }}
+        >
+          余额
+          {walletLoaded && wallet?.activated && (
+            <span style={{ marginLeft: 8, color: "#8c8c8c", fontSize: 12 }}>
+              ${(wallet.balance / 100).toFixed(2)}
+            </span>
+          )}
+        </Button>
+
+        <Button
+          type="text"
           icon={<LogoutOutlined />}
           danger
           block
@@ -389,6 +469,16 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           退出登录
         </Button>
       </Drawer>
+
+      <PolicyModal
+        title="开通余额服务"
+        open={activateModalOpen}
+        policyUrl="/policies/balance-agreement.md"
+        agreeText="同意并开通"
+        agreeLoading={activating}
+        onAgree={handleActivateWallet}
+        onCancel={() => setActivateModalOpen(false)}
+      />
     </Layout>
   );
 }

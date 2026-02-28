@@ -758,7 +758,6 @@ export default function SecurityPage() {
   };
 
   const kycStatusVal = kycStatus?.status ?? "none";
-  const kycConfig = kycStatusConfig[kycStatusVal] ?? kycStatusConfig.none;
 
   return (
     <AppLayout>
