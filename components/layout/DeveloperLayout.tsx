@@ -2,56 +2,55 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Layout, Menu, theme, Spin, Button, Drawer, Grid, Watermark } from "antd";
+import { Layout, Menu, theme, Spin, Button, Drawer, Grid } from "antd";
 import {
-  UserOutlined,
   AppstoreOutlined,
-  SafetyCertificateOutlined,
+  DashboardOutlined,
   FileTextOutlined,
+  UnorderedListOutlined,
+  CreditCardOutlined,
+  BookOutlined,
   ArrowLeftOutlined,
   MenuOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  DollarOutlined,
-  ShoppingCartOutlined,
-  UnorderedListOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useAuthStore } from "@/stores/authStore";
-import { getDeviceFingerprint } from "@/lib/device-sign";
 
 const { Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "LoliAuth";
-
 const siderItems: MenuProps["items"] = [
-  { key: "/admin/users", icon: <UserOutlined />, label: "用户管理" },
-  { key: "/admin/clients", icon: <AppstoreOutlined />, label: "应用管理" },
   {
-    key: "/admin/kyc",
-    icon: <SafetyCertificateOutlined />,
-    label: "KYC 管理",
-  },
-  {
-    key: "/admin/audit-logs",
-    icon: <FileTextOutlined />,
-    label: "审计日志",
+    key: "/developer/apps",
+    icon: <AppstoreOutlined />,
+    label: "我的应用",
   },
   {
     key: "payment",
-    icon: <DollarOutlined />,
-    label: "支付管理",
+    icon: <CreditCardOutlined />,
+    label: "支付功能",
     children: [
       {
-        key: "/admin/billing/orders",
-        icon: <ShoppingCartOutlined />,
+        key: "/developer/billing/dashboard",
+        icon: <DashboardOutlined />,
+        label: "看板",
+      },
+      {
+        key: "/developer/billing/orders",
+        icon: <FileTextOutlined />,
         label: "订单管理",
       },
       {
-        key: "/admin/billing/subscriptions",
+        key: "/developer/billing/subscriptions",
         icon: <UnorderedListOutlined />,
         label: "订阅管理",
+      },
+      {
+        key: "/developer/billing/guide",
+        icon: <BookOutlined />,
+        label: "接入说明",
       },
     ],
   },
@@ -59,35 +58,22 @@ const siderItems: MenuProps["items"] = [
   { key: "/profile", icon: <ArrowLeftOutlined />, label: "返回前台" },
 ];
 
-function formatTime(d: Date) {
-  return d.toLocaleString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-export default function AdminLayout({ children }: React.PropsWithChildren) {
+export default function DeveloperLayout({
+  children,
+}: React.PropsWithChildren) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, hydrate, loadProfile, loading } = useAuthStore();
+  const { hydrate, loadProfile, loading } = useAuthStore();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
   const [ready, setReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userCollapsed, setUserCollapsed] = useState<boolean | null>(null);
-  const [loginTime] = useState(() => formatTime(new Date()));
-  const [fingerprint] = useState(() => getDeviceFingerprint());
   const screens = useBreakpoint();
 
   const isMobile = screens.md === false;
   const isTablet = screens.md === true && screens.lg === false;
-
-  // Derive effective collapsed: honour manual toggle; otherwise auto-collapse on tablet
   const collapsed = userCollapsed !== null ? userCollapsed : isTablet;
 
   useEffect(() => {
@@ -117,7 +103,7 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
     flatKeys.find((key) => pathname.startsWith(key)) ?? "";
 
   const defaultOpenKeys: string[] = [];
-  if (pathname.startsWith("/admin/billing")) {
+  if (pathname.startsWith("/developer/billing")) {
     defaultOpenKeys.push("payment");
   }
 
@@ -149,7 +135,6 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      {/* Desktop / Tablet sidebar */}
       {!isMobile && (
         <Sider
           width={220}
@@ -167,7 +152,6 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
             flexDirection: "column",
           }}
         >
-          {/* Brand / collapse toggle */}
           <div
             style={{
               height: 64,
@@ -189,7 +173,7 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
                   overflow: "hidden",
                 }}
               >
-                管理后台
+                开发者中心
               </span>
             )}
             <Button
@@ -198,38 +182,26 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
               icon={
                 collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />
               }
-              onClick={() => setUserCollapsed((c) => !(c !== null ? c : isTablet))}
+              onClick={() =>
+                setUserCollapsed((c) => !(c !== null ? c : isTablet))
+              }
               style={{ color: "#8c8c8c", flexShrink: 0 }}
             />
           </div>
           {menuContent}
         </Sider>
       )}
-
-      {/* Mobile Drawer */}
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         placement="left"
         width={240}
-        title={<span style={{ fontWeight: 700 }}>{APP_NAME} · 管理后台</span>}
+        title={<span style={{ fontWeight: 700 }}>开发者中心</span>}
         styles={{ body: { padding: 0 } }}
       >
         {menuContent}
       </Drawer>
 
-      <Watermark
-        content={[
-          user?.email?.split("@")[0] ?? "",
-          user?.email ?? "",
-          loginTime,
-          fingerprint,
-        ]}
-        font={{ fontSize: 12, color: "rgba(0,0,0,0.08)" }}
-        gap={[180, 120]}
-        rotate={-22}
-        style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column" }}
-      >
       <Layout style={{ minWidth: 0 }}>
         {isMobile && (
           <div
@@ -252,7 +224,7 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
               icon={<MenuOutlined />}
               onClick={() => setDrawerOpen(true)}
             />
-            <span style={{ fontWeight: 700, fontSize: 16 }}>管理后台</span>
+            <span style={{ fontWeight: 700, fontSize: 16 }}>开发者中心</span>
           </div>
         )}
 
@@ -269,7 +241,6 @@ export default function AdminLayout({ children }: React.PropsWithChildren) {
           {children}
         </Content>
       </Layout>
-      </Watermark>
     </Layout>
   );
 }

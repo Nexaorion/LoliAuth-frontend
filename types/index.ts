@@ -284,3 +284,176 @@ export interface RenamePasskeyRequest {
 export interface AdminChangeEmailRequest {
   new_email: string;
 }
+
+export interface Wallet {
+  id: string;
+  user_id: string;
+  balance: number;
+  currency: string;
+  activated: boolean;
+  activated_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  wallet_id: string;
+  type:
+    | "deposit"
+    | "withdrawal"
+    | "payment_sent"
+    | "payment_received"
+    | "subscription_charge"
+    | "refund";
+  amount: number;
+  balance: number;
+  reference_type?: string;
+  reference_id?: string;
+  description: string;
+  created_at: string;
+}
+
+export interface DepositRequest {
+  amount: number;
+}
+
+export interface DepositResponse {
+  message: string;
+  transaction: WalletTransaction;
+}
+
+export interface WithdrawRequest {
+  amount: number;
+  address: string;
+}
+
+export interface Withdrawal {
+  id: string;
+  user_id: string;
+  wallet_id: string;
+  amount: number;
+  status: "pending" | "approved" | "rejected";
+  address: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  note?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OrderStatus =
+  | "pending"
+  | "paid"
+  | "cancelled"
+  | "refunded"
+  | "expired";
+
+export interface Order {
+  id: string;
+  developer_id: string;
+  client_id: string;
+  payer_id?: string;
+  amount: number;
+  currency: string;
+  status: OrderStatus;
+  title: string;
+  description?: string;
+  metadata?: string;
+  expires_at?: string;
+  paid_at?: string;
+  refunded_at?: string;
+  refund_reason?: string;
+  refunded_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateOrderRequest {
+  client_id: string;
+  amount: number;
+  title: string;
+  payer_id?: string;
+  currency?: string;
+  description?: string;
+  metadata?: string;
+  expires_in?: number;
+}
+
+export interface UpdateOrderRequest {
+  payer_id?: string;
+  amount?: number;
+  title?: string;
+  description?: string;
+  metadata?: string;
+}
+
+export interface OrderStatusResponse {
+  order_id: string;
+  status: OrderStatus;
+  paid_at?: string;
+}
+
+export interface RefundRequest {
+  reason?: string;
+}
+
+export interface DashboardStats {
+  total_orders: number;
+  paid_orders: number;
+  total_revenue: number;
+  success_rate: number;
+}
+
+export interface DashboardResponse {
+  days: number;
+  stats: DashboardStats;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  developer_id: string;
+  client_id: string;
+  name: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  interval_days: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePlanRequest {
+  client_id: string;
+  name: string;
+  amount: number;
+  interval_days: number;
+  description?: string;
+  currency?: string;
+}
+
+export interface UpdatePlanRequest {
+  name?: string;
+  description?: string;
+  amount?: number;
+  interval_days?: number;
+  active?: boolean;
+}
+
+export type SubscriptionStatus =
+  | "active"
+  | "cancelled"
+  | "expired"
+  | "past_due";
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  status: SubscriptionStatus;
+  current_period_start: string;
+  current_period_end: string;
+  created_at: string;
+  updated_at: string;
+}

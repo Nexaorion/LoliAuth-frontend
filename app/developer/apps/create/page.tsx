@@ -36,7 +36,7 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
+import DeveloperLayout from "@/components/layout/DeveloperLayout";
 import { createClient } from "@/lib/api/developer";
 import type { AxiosError } from "axios";
 import type { ApiError, OAuthClientCreated } from "@/types";
@@ -349,7 +349,7 @@ export default function CreateAppPage() {
   };
 
   return (
-    <AppLayout>
+    <DeveloperLayout>
       <Title level={3}>创建应用</Title>
       <Row gutter={[48, 0]} align="top" style={{ marginTop: 16 }}>
         {/* Form column */}
@@ -532,6 +532,6 @@ export default function CreateAppPage() {
           </>
         )}
       </Modal>
-    </AppLayout>
+    </DeveloperLayout>
   );
 }

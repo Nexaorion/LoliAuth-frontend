@@ -5,7 +5,7 @@ import { Table, Button, Typography, App, Tag, Popconfirm, Space } from "antd";
 import { PlusOutlined, DeleteOutlined, CopyOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
+import DeveloperLayout from "@/components/layout/DeveloperLayout";
 import { getClients, deleteClient } from "@/lib/api/developer";
 import type { OAuthClient } from "@/types";
 
@@ -103,7 +103,7 @@ export default function DeveloperAppsPage() {
   ];
 
   return (
-    <AppLayout>
+    <DeveloperLayout>
       <div
         style={{
           display: "flex",
@@ -130,6 +130,6 @@ export default function DeveloperAppsPage() {
         loading={loading}
         pagination={false}
       />
-    </AppLayout>
+    </DeveloperLayout>
   );
 }
