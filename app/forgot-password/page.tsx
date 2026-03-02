@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Form, Input, Button, App, Result } from "antd";
 import { MailOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import AuthLayout from "@/components/layout/AuthLayout";
@@ -8,18 +8,27 @@ import { forgotPassword } from "@/lib/api/account";
 import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
 import Link from "next/link";
+import HCaptchaWidget, { type HCaptchaWidgetRef } from "@/components/ui/HCaptchaWidget";
 
 export default function ForgotPasswordPage() {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [hcaptchaToken, setHcaptchaToken] = useState("");
+  const captchaRef = useRef<HCaptchaWidgetRef>(null);
 
   const onFinish = async (values: { email: string }) => {
+    if (!hcaptchaToken) {
+      message.warning("请先完成人机验证");
+      return;
+    }
     setLoading(true);
     try {
-      await forgotPassword({ email: values.email });
+      await forgotPassword({ email: values.email, hcaptcha_token: hcaptchaToken });
       setSent(true);
     } catch (err) {
+      captchaRef.current?.reset();
+      setHcaptchaToken("");
       const error = err as AxiosError<ApiError>;
       if (error.response?.status === 429) {
         message.error("发送过于频繁，请等待 60 秒后再试");
@@ -89,6 +98,14 @@ export default function ForgotPasswordPage() {
             prefix={<MailOutlined className="text-gray-400" />}
             placeholder="请输入注册时使用的邮箱"
             size="large"
+          />
+        </Form.Item>
+
+        <Form.Item style={{ marginBottom: 8 }}>
+          <HCaptchaWidget
+            ref={captchaRef}
+            onVerify={(token) => setHcaptchaToken(token)}
+            onExpire={() => setHcaptchaToken("")}
           />
         </Form.Item>
 

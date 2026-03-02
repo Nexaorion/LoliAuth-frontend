@@ -41,16 +41,19 @@ export interface UpdateProfileRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+  hcaptcha_token: string;
 }
 
 export interface RegisterRequest {
   email: string;
   password: string;
   verify_code: string;
+  hcaptcha_token: string;
 }
 
 export interface SendCodeRequest {
   email: string;
+  hcaptcha_token: string;
 }
 
 export interface SendCodeResponse {
@@ -245,10 +248,12 @@ export interface AuditLog {
 export interface PasswordResetRequest {
   verify_code: string;
   new_password: string;
+  hcaptcha_token: string;
 }
 
 export interface ForgotPasswordRequest {
   email: string;
+  hcaptcha_token: string;
 }
 
 export interface ForgotPasswordVerifyRequest {
@@ -262,16 +267,23 @@ export interface ForgotPasswordVerifyResponse {
 export interface ForgotPasswordResetRequest {
   token: string;
   new_password: string;
+  hcaptcha_token: string;
 }
 
 export interface SendNewEmailCodeRequest {
   old_code: string;
   new_email: string;
+  hcaptcha_token: string;
 }
 
 export interface ChangeEmailRequest {
   new_email: string;
   new_code: string;
+  hcaptcha_token: string;
+}
+
+export interface KycStartRequest {
+  hcaptcha_token: string;
 }
 
 export interface MessageResponse {

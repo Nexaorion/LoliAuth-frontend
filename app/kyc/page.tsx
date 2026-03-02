@@ -25,6 +25,7 @@ import {
 } from "@ant-design/icons";
 import AppLayout from "@/components/layout/AppLayout";
 import { startKyc, verifyKyc, getKycStatus } from "@/lib/api/kyc";
+import HCaptchaWidget, { type HCaptchaWidgetRef } from "@/components/ui/HCaptchaWidget";
 import type { KycStatus } from "@/types";
 import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
@@ -104,6 +105,7 @@ export default function KycPage() {
   const [isMobile, setIsMobile] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeCheckedRef = useRef(false);
+  const captchaRef = useRef<HCaptchaWidgetRef>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
@@ -243,10 +245,10 @@ export default function KycPage() {
     });
   }, [fetchData, modal, openVerifyModal]);
 
-  const handleStart = async () => {
+  const handleStart = async (hcaptchaToken: string) => {
     setStarting(true);
     try {
-      const res = await startKyc();
+      const res = await startKyc({ hcaptcha_token: hcaptchaToken });
       const session: KycSession = {
         verifyToken: res.verify_token,
         h5Url: res.h5_url,
@@ -269,6 +271,7 @@ export default function KycPage() {
       }
     } finally {
       setStarting(false);
+      captchaRef.current?.reset();
     }
   };
 
@@ -279,7 +282,7 @@ export default function KycPage() {
 
   const handleConfirmStart = () => {
     setConfirmModalOpen(false);
-    handleStart();
+    captchaRef.current?.execute();
   };
 
   const handleModalClose = () => {
@@ -506,6 +509,15 @@ export default function KycPage() {
           </div>
         )}
       </Modal>
+
+      <HCaptchaWidget
+        ref={captchaRef}
+        size="invisible"
+        onVerify={(token) => handleStart(token)}
+        onError={() => {
+          setStarting(false);
+        }}
+      />
 
     </AppLayout>
   );

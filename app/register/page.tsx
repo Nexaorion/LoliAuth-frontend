@@ -10,6 +10,7 @@ import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
 import Link from "next/link";
 import PolicyModal from "@/components/ui/PolicyModal";
+import HCaptchaWidget, { type HCaptchaWidgetRef } from "@/components/ui/HCaptchaWidget";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,6 +21,8 @@ export default function RegisterPage() {
   const [countdown, setCountdown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [policyModal, setPolicyModal] = useState<"user" | "privacy" | null>(null);
+  const [hcaptchaToken, setHcaptchaToken] = useState("");
+  const captchaRef = useRef<HCaptchaWidgetRef>(null);
 
   useEffect(() => {
     return () => {
@@ -47,14 +50,22 @@ export default function RegisterPage() {
     } catch {
       return;
     }
+    if (!hcaptchaToken) {
+      message.warning("请先完成人机验证");
+      return;
+    }
 
     const email = form.getFieldValue("email") as string;
+    const usedToken = hcaptchaToken;
     setSendingCode(true);
     try {
-      await sendRegisterCode({ email });
+      await sendRegisterCode({ email, hcaptcha_token: usedToken });
       message.success("验证码已发送，请查收邮箱");
-      startCountdown();
+      captchaRef.current?.reset();
+      setHcaptchaToken("");
     } catch (err) {
+      captchaRef.current?.reset();
+      setHcaptchaToken("");
       const error = err as AxiosError<ApiError>;
       if (error.response?.status === 429) {
         message.error("发送过于频繁，请稍后再试");
@@ -74,16 +85,23 @@ export default function RegisterPage() {
     password: string;
     verify_code: string;
   }) => {
+    if (!hcaptchaToken) {
+      message.warning("请先完成人机验证");
+      return;
+    }
     setLoading(true);
     try {
       await register({
         email: values.email,
         password: values.password,
         verify_code: values.verify_code,
+        hcaptcha_token: hcaptchaToken,
       });
       message.success("注册成功，请登录");
       router.push("/login");
     } catch (err) {
+      captchaRef.current?.reset();
+      setHcaptchaToken("");
       const error = err as AxiosError<ApiError>;
       if (error.response?.status === 409) {
         message.error("该邮箱已被注册");
@@ -237,6 +255,14 @@ export default function RegisterPage() {
               </a>
             </span>
           </Checkbox>
+        </Form.Item>
+
+        <Form.Item style={{ marginBottom: 8 }}>
+          <HCaptchaWidget
+            ref={captchaRef}
+            onVerify={(token) => setHcaptchaToken(token)}
+            onExpire={() => setHcaptchaToken("")}
+          />
         </Form.Item>
 
         <Form.Item style={{ marginBottom: 0 }}>

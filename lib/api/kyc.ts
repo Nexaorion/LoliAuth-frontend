@@ -1,8 +1,8 @@
 import http from "@/lib/http";
-import type { KycStartResponse, KycRecord, KycStatus } from "@/types";
+import type { KycStartRequest, KycStartResponse, KycRecord, KycStatus } from "@/types";
 
-export async function startKyc(): Promise<KycStartResponse> {
-  const res = await http.post<KycStartResponse>("/api/v1/kyc/start");
+export async function startKyc(data: KycStartRequest): Promise<KycStartResponse> {
+  const res = await http.post<KycStartResponse>("/api/v1/kyc/start", data);
   return res.data;
 }
 

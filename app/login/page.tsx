@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Form, Input, Button, Checkbox, App, Spin, Divider } from "antd";
 import { MailOutlined, LockOutlined, KeyOutlined } from "@ant-design/icons";
@@ -12,6 +12,7 @@ import type { AxiosError } from "axios";
 import type { ApiError } from "@/types";
 import Link from "next/link";
 import PolicyModal from "@/components/ui/PolicyModal";
+import HCaptchaWidget, { type HCaptchaWidgetRef } from "@/components/ui/HCaptchaWidget";
 
 function LoginForm() {
   const router = useRouter();
@@ -22,16 +23,24 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [policyModal, setPolicyModal] = useState<"user" | "privacy" | null>(null);
+  const [hcaptchaToken, setHcaptchaToken] = useState("");
+  const captchaRef = useRef<HCaptchaWidgetRef>(null);
   const [form] = Form.useForm();
 
   const onFinish = async (values: { email: string; password: string }) => {
+    if (!hcaptchaToken) {
+      message.warning("请先完成人机验证");
+      return;
+    }
     setLoading(true);
     try {
-      await login(values);
+      await login({ ...values, hcaptcha_token: hcaptchaToken });
       message.success("登录成功");
       const redirect = searchParams.get("redirect") || "/profile";
       router.push(redirect);
     } catch (err) {
+      captchaRef.current?.reset();
+      setHcaptchaToken("");
       const error = err as AxiosError<ApiError>;
       const status = error.response?.status;
       if (status === 401) {
@@ -140,6 +149,14 @@ function LoginForm() {
             prefix={<LockOutlined className="text-gray-400" />}
             placeholder="请输入密码"
             size="large"
+          />
+        </Form.Item>
+
+        <Form.Item style={{ marginBottom: 8 }}>
+          <HCaptchaWidget
+            ref={captchaRef}
+            onVerify={(token) => setHcaptchaToken(token)}
+            onExpire={() => setHcaptchaToken("")}
           />
         </Form.Item>
 
