@@ -14,8 +14,28 @@ export interface User {
   id: string;
   email: string;
   status: "active" | "disabled" | "suspended";
+  role?: "user" | "admin";
+  family_name?: string;
+  given_name?: string;
+  name?: string;
+  timezone?: string;
+  avatar_url?: string;
+  profile_url?: string;
+  birthdate?: string;
+  last_login_at?: string;
+  last_login_ip?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface UpdateProfileRequest {
+  family_name?: string;
+  given_name?: string;
+  name?: string;
+  timezone?: string;
+  avatar_url?: string;
+  profile_url?: string;
+  birthdate?: string;
 }
 
 export interface LoginRequest {

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const TOKEN_KEY = process.env.NEXT_PUBLIC_TOKEN_COOKIE_KEY || "loliauth_token";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/verify"];
-const PROTECTED_PATHS = ["/profile", "/developer", "/kyc", "/oauth/authorize", "/admin", "/security", "/balance"];
+const PROTECTED_PATHS = ["/", "/profile", "/developer", "/kyc", "/oauth/authorize", "/admin", "/security", "/balance"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -11,15 +11,15 @@ export function middleware(request: NextRequest) {
 
   // Allow public paths
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    // If already logged in, redirect to profile
+    // If already logged in, redirect to home
     if (token) {
-      return NextResponse.redirect(new URL("/profile", request.url));
+      return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }
 
   // Protected paths require token
-  if (PROTECTED_PATHS.some((p) => pathname.startsWith(p))) {
+  if (PROTECTED_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(p)))) {
     if (!token) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname + request.nextUrl.search);
@@ -32,6 +32,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/login",
     "/register",
     "/forgot-password",

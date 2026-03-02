@@ -17,6 +17,7 @@ import type {
   Passkey,
   PasskeyCreated,
   RenamePasskeyRequest,
+  UpdateProfileRequest,
 } from "@/types";
 
 export async function sendRegisterCode(
@@ -41,6 +42,11 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
 
 export async function getProfile(): Promise<User> {
   const res = await http.get<User>("/api/v1/account/profile");
+  return res.data;
+}
+
+export async function updateProfile(data: UpdateProfileRequest): Promise<User> {
+  const res = await http.put<User>("/api/v1/account/profile", data);
   return res.data;
 }
 

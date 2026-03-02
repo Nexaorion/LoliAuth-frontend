@@ -57,6 +57,15 @@ function gravatarUrl(email?: string, size = 80): string | undefined {
   return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=404`;
 }
 
+function resolveAvatarUrl(
+  email?: string,
+  avatarUrl?: string,
+  size = 80
+): string | undefined {
+  if (avatarUrl) return avatarUrl;
+  return gravatarUrl(email, size);
+}
+
 function truncateId(id: string) {
   if (!id) return "";
   if (id.length <= 12) return id;
@@ -174,7 +183,7 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
         <Tooltip title="点击了解头像来源" placement="bottom">
           <Avatar
             size={44}
-            src={gravatarUrl(user?.email, 88)}
+            src={resolveAvatarUrl(user?.email, user?.avatar_url, 88)}
             style={{ background: "#8c8c8c", flexShrink: 0, fontSize: 18, fontWeight: 600, cursor: "pointer" }}
             onClick={() => {
               setPopoverOpen(false);
@@ -350,7 +359,7 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           arrow={false}
         >
           <Avatar
-            src={gravatarUrl(user?.email)}
+            src={resolveAvatarUrl(user?.email, user?.avatar_url)}
             style={{
               cursor: "pointer",
               marginLeft: isMobile ? 0 : 8,
@@ -387,7 +396,7 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Avatar
               size={40}
-              src={gravatarUrl(user?.email, 80)}
+              src={resolveAvatarUrl(user?.email, user?.avatar_url, 80)}
               style={{ background: "#8c8c8c", fontWeight: 600, flexShrink: 0 }}
             >
               {avatarLetter(user?.email)}
@@ -507,13 +516,27 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "8px 0" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-            <Avatar size={48} src={gravatarUrl(user?.email, 96)} style={{ background: "#8c8c8c", flexShrink: 0, fontWeight: 600 }}>
+            <Avatar size={48} src={resolveAvatarUrl(user?.email, user?.avatar_url, 96)} style={{ background: "#8c8c8c", flexShrink: 0, fontWeight: 600 }}>
               {avatarLetter(user?.email)}
             </Avatar>
             <div style={{ fontSize: 13, color: "#595959", lineHeight: "1.6" }}>
-              <p style={{ margin: "0 0 8px" }}>我们使用 <a href="https://gravatar.com" target="_blank" rel="noreferrer">Gravatar</a> 提供全球通用头像服务。</p>
-              <p style={{ margin: "0 0 8px" }}>如需更换头像，请前往 <a href="https://gravatar.com" target="_blank" rel="noreferrer">gravatar.com</a> 使用您的注册邮箱（<strong>{user?.email}</strong>）登录并上传头像，保存后稍等片刻即可生效。</p>
-              <p style={{ margin: 0, color: "#8c8c8c" }}>若未能获取到 Gravatar 头像，系统将自动显示默认的文字头像。</p>
+              {user?.avatar_url ? (
+                <p style={{ margin: 0 }}>
+                  我们正在使用您提供的头像链接来源。如需改回 Gravatar，请保持
+                  <a
+                    onClick={() => { setAvatarInfoOpen(false); }}
+                    style={{ cursor: "pointer", margin: "0 3px" }}
+                    href="/profile"
+                  >个人中心</a>
+                  的头像链接为空。
+                </p>
+              ) : (
+                <>
+                  <p style={{ margin: "0 0 8px" }}>我们使用 <a href="https://gravatar.com" target="_blank" rel="noreferrer">Gravatar</a> 提供全球通用头像服务。</p>
+                  <p style={{ margin: "0 0 8px" }}>如需更换头像，请前往 <a href="https://gravatar.com" target="_blank" rel="noreferrer">gravatar.com</a> 使用您的注册邮箱（<strong>{user?.email}</strong>）登录并上传头像，保存后稍等片刻即可生效。</p>
+                  <p style={{ margin: 0, color: "#8c8c8c" }}>若未能获取到 Gravatar 头像，系统将自动显示默认的文字头像。</p>
+                </>
+              )}
             </div>
           </div>
         </div>
