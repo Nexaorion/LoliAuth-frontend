@@ -17,7 +17,9 @@ import {
   Drawer,
   Grid,
   message,
+  Modal,
 } from "antd";
+import md5 from "md5";
 import PolicyModal from "@/components/ui/PolicyModal";
 import {
   UserOutlined,
@@ -48,6 +50,12 @@ const navItems: MenuProps["items"] = [
   { key: "/security", icon: <SecurityScanOutlined />, label: "安全中心" },
   { key: "/developer/apps", icon: <AppstoreOutlined />, label: "应用管理" },
 ];
+
+function gravatarUrl(email?: string, size = 80): string | undefined {
+  if (!email) return undefined;
+  const hash = md5(email.trim().toLowerCase());
+  return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=404`;
+}
 
 function truncateId(id: string) {
   if (!id) return "";
@@ -82,6 +90,7 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
   const [walletLoaded, setWalletLoaded] = useState(false);
   const [activateModalOpen, setActivateModalOpen] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [avatarInfoOpen, setAvatarInfoOpen] = useState(false);
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
 
@@ -162,12 +171,19 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
     <div style={{ width: 220 }}>
       {/* User info */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0 12px" }}>
-        <Avatar
-          size={44}
-          style={{ background: "#8c8c8c", flexShrink: 0, fontSize: 18, fontWeight: 600 }}
-        >
-          {avatarLetter(user?.email)}
-        </Avatar>
+        <Tooltip title="点击了解头像来源" placement="bottom">
+          <Avatar
+            size={44}
+            src={gravatarUrl(user?.email, 88)}
+            style={{ background: "#8c8c8c", flexShrink: 0, fontSize: 18, fontWeight: 600, cursor: "pointer" }}
+            onClick={() => {
+              setPopoverOpen(false);
+              setAvatarInfoOpen(true);
+            }}
+          >
+            {avatarLetter(user?.email)}
+          </Avatar>
+        </Tooltip>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 15, lineHeight: "22px" }}>
             {displayName(user?.email)}
@@ -334,6 +350,7 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           arrow={false}
         >
           <Avatar
+            src={gravatarUrl(user?.email)}
             style={{
               cursor: "pointer",
               marginLeft: isMobile ? 0 : 8,
@@ -370,6 +387,7 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Avatar
               size={40}
+              src={gravatarUrl(user?.email, 80)}
               style={{ background: "#8c8c8c", fontWeight: 600, flexShrink: 0 }}
             >
               {avatarLetter(user?.email)}
@@ -479,6 +497,27 @@ export default function AppLayout({ children }: React.PropsWithChildren) {
         onAgree={handleActivateWallet}
         onCancel={() => setActivateModalOpen(false)}
       />
+
+      <Modal
+        open={avatarInfoOpen}
+        onCancel={() => setAvatarInfoOpen(false)}
+        footer={<Button type="primary" onClick={() => setAvatarInfoOpen(false)}>知道了</Button>}
+        title="头像设置"
+        width={360}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "8px 0" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <Avatar size={48} src={gravatarUrl(user?.email, 96)} style={{ background: "#8c8c8c", flexShrink: 0, fontWeight: 600 }}>
+              {avatarLetter(user?.email)}
+            </Avatar>
+            <div style={{ fontSize: 13, color: "#595959", lineHeight: "1.6" }}>
+              <p style={{ margin: "0 0 8px" }}>我们使用 <a href="https://gravatar.com" target="_blank" rel="noreferrer">Gravatar</a> 提供全球通用头像服务。</p>
+              <p style={{ margin: "0 0 8px" }}>如需更换头像，请前往 <a href="https://gravatar.com" target="_blank" rel="noreferrer">gravatar.com</a> 使用您的注册邮箱（<strong>{user?.email}</strong>）登录并上传头像，保存后稍等片刻即可生效。</p>
+              <p style={{ margin: 0, color: "#8c8c8c" }}>若未能获取到 Gravatar 头像，系统将自动显示默认的文字头像。</p>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </Layout>
   );
 }
