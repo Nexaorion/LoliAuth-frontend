@@ -16,7 +16,7 @@ interface HCaptchaWidgetProps {
   size?: "normal" | "compact" | "invisible";
 }
 
-const SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY ?? "";
+const SITE_KEY = "3378bcea-9fde-41d8-9704-e3e201e6a5fe";
 
 const HCaptchaWidget = forwardRef<HCaptchaWidgetRef, HCaptchaWidgetProps>(
   function HCaptchaWidget(
