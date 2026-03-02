@@ -25,6 +25,13 @@ export async function activateWallet(): Promise<Wallet> {
   return res.data;
 }
 
+export async function deactivateWallet(): Promise<{ message: string; wallet: Wallet }> {
+  const res = await http.post<{ message: string; wallet: Wallet }>(
+    "/api/v1/billing/wallet/deactivate"
+  );
+  return res.data;
+}
+
 export async function getWallet(): Promise<Wallet> {
   const res = await http.get<Wallet>("/api/v1/billing/wallet");
   return res.data;
@@ -53,6 +60,13 @@ export async function getWithdrawals(params?: {
   const res = await http.get<PaginatedResponse<Withdrawal>>(
     "/api/v1/billing/wallet/withdrawals",
     { params }
+  );
+  return res.data;
+}
+
+export async function getWithdrawalDetail(id: string): Promise<Withdrawal> {
+  const res = await http.get<Withdrawal>(
+    `/api/v1/billing/wallet/withdrawals/${id}`
   );
   return res.data;
 }

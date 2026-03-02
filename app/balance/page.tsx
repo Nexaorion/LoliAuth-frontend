@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   Card,
   Statistic,
@@ -19,6 +18,7 @@ import {
   Typography,
   Grid,
   Tabs,
+  Popover,
 } from "antd";
 import {
   WalletOutlined,
@@ -26,6 +26,8 @@ import {
   ArrowUpOutlined,
   HistoryOutlined,
   ReloadOutlined,
+  PoweroffOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import AppLayout from "@/components/layout/AppLayout";
@@ -33,10 +35,12 @@ import PolicyModal from "@/components/ui/PolicyModal";
 import {
   getWallet,
   activateWallet,
+  deactivateWallet,
   deposit,
   withdraw,
   getTransactions,
   getWithdrawals,
+  getWithdrawalDetail,
 } from "@/lib/api/billing";
 import type { Wallet, WalletTransaction, Withdrawal } from "@/types";
 
@@ -68,6 +72,14 @@ export default function BalancePage() {
   const [activating, setActivating] = useState(false);
   const [activateModalOpen, setActivateModalOpen] = useState(false);
 
+  // Deactivate
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
+
+  // Withdrawal rejection reason
+  const [rejectReasonMap, setRejectReasonMap] = useState<Record<string, string | null>>({});
+  const [loadingReasonId, setLoadingReasonId] = useState<string | null>(null);
+
   // Transactions
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [txTotal, setTxTotal] = useState(0);
@@ -92,8 +104,13 @@ export default function BalancePage() {
   const fetchWallet = useCallback(async () => {
     try {
       const w = await getWallet();
-      setWallet(w);
-      setNotActivated(false);
+      if (!w.activated) {
+        setNotActivated(true);
+        setWallet(null);
+      } else {
+        setWallet(w);
+        setNotActivated(false);
+      }
     } catch {
       setNotActivated(true);
       setWallet(null);
@@ -157,6 +174,47 @@ export default function BalancePage() {
       message.error("开通失败，请稍后再试");
     } finally {
       setActivating(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    setDeactivating(true);
+    try {
+      await deactivateWallet();
+      message.success("钱包已停用");
+      setDeactivateModalOpen(false);
+      setWallet(null);
+      setNotActivated(true);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      const code = error?.response?.data?.error;
+      if (code === "active_subscription_exists") {
+        message.error("存在激活中的订阅，请先取消所有订阅后再停用");
+      } else if (code === "outstanding_bill_exists") {
+        message.error("存在未结清的待支付订单，请先处理后再停用");
+      } else if (code === "non_zero_balance") {
+        message.error("钱包余额不为零，请先提现所有余额后再停用");
+      } else {
+        message.error("停用失败，请稍后再试");
+      }
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
+  const fetchRejectReason = async (withdrawalId: string) => {
+    if (rejectReasonMap[withdrawalId] !== undefined) return;
+    setLoadingReasonId(withdrawalId);
+    try {
+      const detail = await getWithdrawalDetail(withdrawalId);
+      setRejectReasonMap((prev) => ({
+        ...prev,
+        [withdrawalId]: detail.admin_note || "管理员未填写拒绝原因",
+      }));
+    } catch {
+      setRejectReasonMap((prev) => ({ ...prev, [withdrawalId]: "获取原因失败" }));
+    } finally {
+      setLoadingReasonId(null);
     }
   };
 
@@ -257,13 +315,46 @@ export default function BalancePage() {
     {
       title: "状态",
       dataIndex: "status",
-      width: 100,
-      render: (status: string) => {
+      width: 130,
+      render: (status: string, record: Withdrawal) => {
         const info = WITHDRAWAL_STATUS[status] || {
           label: status,
           color: "default",
         };
-        return <Tag color={info.color}>{info.label}</Tag>;
+        if (status !== "rejected") {
+          return <Tag color={info.color}>{info.label}</Tag>;
+        }
+        const reason = rejectReasonMap[record.id];
+        return (
+          <Space size={4}>
+            <Tag color={info.color}>{info.label}</Tag>
+            <Popover
+              title="拒绝原因"
+              content={
+                reason !== undefined ? (
+                  <Text style={{ maxWidth: 240, display: "block" }}>{reason}</Text>
+                ) : (
+                  <Text type="secondary">加载中…</Text>
+                )
+              }
+              trigger="click"
+              onOpenChange={(open) => {
+                if (open) fetchRejectReason(record.id);
+              }}
+            >
+              <Button
+                type="text"
+                size="small"
+                icon={
+                  <InfoCircleOutlined
+                    style={{ color: "#ff4d4f" }}
+                  />
+                }
+                loading={loadingReasonId === record.id}
+              />
+            </Popover>
+          </Space>
+        );
       },
     },
     {
@@ -384,6 +475,13 @@ export default function BalancePage() {
                 }}
               >
                 刷新
+              </Button>
+              <Button
+                danger
+                icon={<PoweroffOutlined />}
+                onClick={() => setDeactivateModalOpen(true)}
+              >
+                停用钱包
               </Button>
             </Space>
           </div>
@@ -581,6 +679,24 @@ export default function BalancePage() {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="停用钱包服务"
+        open={deactivateModalOpen}
+        onCancel={() => setDeactivateModalOpen(false)}
+        onOk={handleDeactivate}
+        okText="确认停用"
+        okButtonProps={{ danger: true, loading: deactivating }}
+        cancelText="取消"
+      >
+        <p>停用后您将无法进行充值、提现、支付等操作。</p>
+        <p><strong>停用前请确保同时满足以下条件：</strong></p>
+        <ul style={{ paddingLeft: 20, color: "rgba(0,0,0,0.65)" }}>
+          <li>钱包余额为零（请先提现所有余额）</li>
+          <li>无激活中的订阅服务</li>
+          <li>无未结清的待支付订单</li>
+        </ul>
       </Modal>
     </AppLayout>
   );

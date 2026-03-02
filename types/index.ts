@@ -47,6 +47,8 @@ export interface OAuthClient {
   client_id: string;
   app_name: string;
   redirect_uris: string[];
+  allowed_scopes: string[];
+  allowed_grant_types: string[];
   is_confidential: boolean;
 }
 
@@ -60,6 +62,13 @@ export interface CreateClientRequest {
   allowed_scopes?: string[];
   allowed_grant_types?: string[];
   is_confidential?: boolean;
+}
+
+export interface UpdateClientRequest {
+  app_name?: string;
+  redirect_uris?: string[];
+  allowed_scopes?: string[];
+  allowed_grant_types?: string[];
 }
 
 export interface AuthorizeParams {
@@ -338,6 +347,7 @@ export interface Withdrawal {
   reviewed_by?: string;
   reviewed_at?: string;
   note?: string;
+  admin_note?: string;
   created_at: string;
   updated_at: string;
 }

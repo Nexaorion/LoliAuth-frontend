@@ -3,6 +3,7 @@ import type {
   OAuthClient,
   OAuthClientCreated,
   CreateClientRequest,
+  UpdateClientRequest,
 } from "@/types";
 
 export async function getClients(): Promise<OAuthClient[]> {
@@ -22,4 +23,15 @@ export async function createClient(
 
 export async function deleteClient(clientId: string): Promise<void> {
   await http.delete(`/api/v1/developer/clients/${clientId}`);
+}
+
+export async function updateClient(
+  clientId: string,
+  data: UpdateClientRequest
+): Promise<OAuthClient> {
+  const res = await http.put<OAuthClient>(
+    `/api/v1/developer/clients/${clientId}`,
+    data
+  );
+  return res.data;
 }
