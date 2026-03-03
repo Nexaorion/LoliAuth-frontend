@@ -14,21 +14,31 @@ export default function ForgotPasswordPage() {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [hcaptchaToken, setHcaptchaToken] = useState("");
+  const pendingEmailRef = useRef<{ email: string } | null>(null);
   const captchaRef = useRef<HCaptchaWidgetRef>(null);
 
   const onFinish = async (values: { email: string }) => {
-    if (!hcaptchaToken) {
-      message.warning("请先完成人机验证");
-      return;
-    }
+    pendingEmailRef.current = { email: values.email };
     setLoading(true);
     try {
-      await forgotPassword({ email: values.email, hcaptcha_token: hcaptchaToken });
+      captchaRef.current?.execute();
+    } catch (e) {
+      pendingEmailRef.current = null;
+      setLoading(false);
+      message.error("人机验证初始化失败，请稍后重试");
+    }
+  };
+
+  const handleVerify = async (token: string) => {
+    const pending = pendingEmailRef.current;
+    if (!pending) {
+      return;
+    }
+    try {
+      await forgotPassword({ email: pending.email, hcaptcha_token: token });
       setSent(true);
     } catch (err) {
       captchaRef.current?.reset();
-      setHcaptchaToken("");
       const error = err as AxiosError<ApiError>;
       if (error.response?.status === 429) {
         message.error("发送过于频繁，请等待 60 秒后再试");
@@ -40,6 +50,7 @@ export default function ForgotPasswordPage() {
         );
       }
     } finally {
+      pendingEmailRef.current = null;
       setLoading(false);
     }
   };
@@ -104,8 +115,13 @@ export default function ForgotPasswordPage() {
         <Form.Item style={{ marginBottom: 8 }}>
           <HCaptchaWidget
             ref={captchaRef}
-            onVerify={(token) => setHcaptchaToken(token)}
-            onExpire={() => setHcaptchaToken("")}
+            size="invisible"
+            onVerify={(token) => handleVerify(token)}
+            onExpire={() => {
+              // 如果过期，取消挂起提交并停止加载状态
+              pendingEmailRef.current = null;
+              setLoading(false);
+            }}
           />
         </Form.Item>
 

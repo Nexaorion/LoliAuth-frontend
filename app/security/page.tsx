@@ -215,14 +215,15 @@ function EmailModal({ open, onClose }: EmailModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const oldCountdown = useCountdown();
   const [savedNewEmail, setSavedNewEmail] = useState("");
-  const [hcaptchaToken, setHcaptchaToken] = useState("");
+  
   const captchaRef = useRef<HCaptchaWidgetRef>(null);
+  const continuationRef = useRef<((token: string) => Promise<void>) | null>(null);
 
   const resetAll = useCallback(() => {
     setStep(0);
     form.resetFields();
     setSavedNewEmail("");
-    setHcaptchaToken("");
+    continuationRef.current = null;
     captchaRef.current?.reset();
   }, [form]);
 
@@ -231,74 +232,74 @@ function EmailModal({ open, onClose }: EmailModalProps) {
     onClose();
   };
 
+  const executeWithCaptcha = (action: (token: string) => Promise<void>) => {
+    continuationRef.current = action;
+    captchaRef.current?.reset();
+    captchaRef.current?.execute();
+  };
+
   const handleSendOldCode = async () => {
-    setSendingOldCode(true);
-    try {
-      await sendOldEmailCode();
-      message.success("验证码已发送至你的当前邮箱");
-      oldCountdown.start();
-      setStep(1);
-    } catch (err) {
-      const error = err as AxiosError<ApiError>;
-      if (error.response?.status === 429) {
-        message.error("发送过于频繁，请等待 60 秒后再试");
-      } else {
-        message.error(error.response?.data?.error_description || "发送失败，请稍后重试");
+    executeWithCaptcha(async (token) => {
+      setSendingOldCode(true);
+      try {
+        await sendOldEmailCode({ hcaptcha_token: token });
+        message.success("验证码已发送至你的当前邮箱");
+        oldCountdown.start();
+        setStep(1);
+      } catch (err) {
+        const error = err as AxiosError<ApiError>;
+        if (error.response?.status === 429) {
+          message.error("发送过于频繁，请等待 60 秒后再试");
+        } else {
+          message.error(error.response?.data?.error_description || "发送失败，请稍后重试");
+        }
+      } finally {
+        setSendingOldCode(false);
       }
-    } finally {
-      setSendingOldCode(false);
-    }
+    });
   };
 
   const handleStep1 = async (values: { old_code: string; new_email: string }) => {
-    if (!hcaptchaToken) {
-      message.warning("请先完成人机验证");
-      return;
-    }
-    setSendingNewCode(true);
-    try {
-      await sendNewEmailCode({ old_code: values.old_code, new_email: values.new_email, hcaptcha_token: hcaptchaToken });
-      message.success("验证码已发送至新邮箱");
-      setSavedNewEmail(values.new_email);
-      captchaRef.current?.reset();
-      setHcaptchaToken("");
-      setStep(2);
-    } catch (err) {
-      captchaRef.current?.reset();
-      setHcaptchaToken("");
-      const error = err as AxiosError<ApiError>;
-      const status = error.response?.status;
-      if (status === 400) message.error("旧邮箱验证码无效或已过期");
-      else if (status === 409) message.error("新邮箱已被注册");
-      else if (status === 429) message.error("发送过于频繁，请等待 60 秒后再试");
-      else message.error(error.response?.data?.error_description || "操作失败，请稍后重试");
-    } finally {
-      setSendingNewCode(false);
-    }
+    executeWithCaptcha(async (token) => {
+      setSendingNewCode(true);
+      try {
+        await sendNewEmailCode({ old_code: values.old_code, new_email: values.new_email, hcaptcha_token: token });
+        message.success("验证码已发送至新邮箱");
+        setSavedNewEmail(values.new_email);
+        setStep(2);
+      } catch (err) {
+        captchaRef.current?.reset();
+        const error = err as AxiosError<ApiError>;
+        const status = error.response?.status;
+        if (status === 400) message.error("旧邮箱验证码无效或已过期");
+        else if (status === 409) message.error("新邮箱已被注册");
+        else if (status === 429) message.error("发送过于频繁，请等待 60 秒后再试");
+        else message.error(error.response?.data?.error_description || "操作失败，请稍后重试");
+      } finally {
+        setSendingNewCode(false);
+      }
+    });
   };
 
   const handleStep2 = async (values: { new_code: string }) => {
-    if (!hcaptchaToken) {
-      message.warning("请先完成人机验证");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await changeEmail({ new_email: savedNewEmail, new_code: values.new_code, hcaptcha_token: hcaptchaToken });
-      message.success("邮箱修改成功");
-      await loadProfile();
-      handleClose();
-    } catch (err) {
-      captchaRef.current?.reset();
-      setHcaptchaToken("");
-      const error = err as AxiosError<ApiError>;
-      const status = error.response?.status;
-      if (status === 400) message.error("验证码无效或已过期");
-      else if (status === 409) message.error("新邮箱已被注册");
-      else message.error(error.response?.data?.error_description || "操作失败，请稍后重试");
-    } finally {
-      setSubmitting(false);
-    }
+    executeWithCaptcha(async (token) => {
+      setSubmitting(true);
+      try {
+        await changeEmail({ new_email: savedNewEmail, new_code: values.new_code, hcaptcha_token: token });
+        message.success("邮箱修改成功");
+        await loadProfile();
+        handleClose();
+      } catch (err) {
+        captchaRef.current?.reset();
+        const error = err as AxiosError<ApiError>;
+        const status = error.response?.status;
+        if (status === 400) message.error("验证码无效或已过期");
+        else if (status === 409) message.error("新邮箱已被注册");
+        else message.error(error.response?.data?.error_description || "操作失败，请稍后重试");
+      } finally {
+        setSubmitting(false);
+      }
+    });
   };
 
   return (
@@ -383,13 +384,6 @@ function EmailModal({ open, onClose }: EmailModalProps) {
           >
             <Input prefix={<MailOutlined style={{ color: "#bfbfbf" }} />} placeholder="请输入新的邮箱地址" />
           </Form.Item>
-          <Form.Item style={{ marginBottom: 8 }}>
-            <HCaptchaWidget
-              ref={captchaRef}
-              onVerify={(token) => setHcaptchaToken(token)}
-              onExpire={() => setHcaptchaToken("")}
-            />
-          </Form.Item>
           <Space style={{ width: "100%", justifyContent: "flex-end" }}>
             <Button onClick={handleClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={sendingNewCode}>
@@ -414,13 +408,6 @@ function EmailModal({ open, onClose }: EmailModalProps) {
           >
             <Input placeholder="请输入 6 位验证码" maxLength={6} />
           </Form.Item>
-          <Form.Item style={{ marginBottom: 8 }}>
-            <HCaptchaWidget
-              ref={captchaRef}
-              onVerify={(token) => setHcaptchaToken(token)}
-              onExpire={() => setHcaptchaToken("")}
-            />
-          </Form.Item>
           <Space style={{ width: "100%", justifyContent: "flex-end" }}>
             <Button onClick={() => setStep(1)}>上一步</Button>
             <Button type="primary" htmlType="submit" loading={submitting}>
@@ -429,6 +416,30 @@ function EmailModal({ open, onClose }: EmailModalProps) {
           </Space>
         </Form>
       )}
+
+      <HCaptchaWidget
+        ref={captchaRef}
+        size="invisible"
+        onVerify={async (token) => {
+          if (continuationRef.current) {
+            await continuationRef.current(token);
+            continuationRef.current = null;
+          }
+        }}
+        onError={() => {
+          message.error("人机验证失败");
+          continuationRef.current = null;
+          setSendingOldCode(false);
+          setSendingNewCode(false);
+          setSubmitting(false);
+        }}
+        onExpire={() => {
+          continuationRef.current = null;
+          setSendingOldCode(false);
+          setSendingNewCode(false);
+          setSubmitting(false);
+        }}
+      />
     </Modal>
   );
 }
@@ -446,52 +457,58 @@ function PasswordModal({ open, onClose }: PasswordModalProps) {
   const [sendingCode, setSendingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { countdown, start: startCountdown } = useCountdown();
-  const [hcaptchaToken, setHcaptchaToken] = useState("");
+  
   const captchaRef = useRef<HCaptchaWidgetRef>(null);
+  const continuationRef = useRef<((token: string) => Promise<void>) | null>(null);
 
   const handleClose = () => {
     setStep(0);
     form.resetFields();
-    setHcaptchaToken("");
+    continuationRef.current = null;
     captchaRef.current?.reset();
     onClose();
   };
 
+  const executeWithCaptcha = (action: (token: string) => Promise<void>) => {
+    continuationRef.current = action;
+    captchaRef.current?.reset();
+    captchaRef.current?.execute();
+  };
+
   const handleSendCode = async () => {
-    setSendingCode(true);
-    try {
-      await sendPasswordResetCode();
-      message.success("验证码已发送至你的邮箱");
-      startCountdown();
-      setStep(1);
-    } catch (err) {
-      const error = err as AxiosError<ApiError>;
-      if (error.response?.status === 429) message.error("发送过于频繁，请等待 60 秒后再试");
-      else message.error(error.response?.data?.error_description || "发送失败，请稍后重试");
-    } finally {
-      setSendingCode(false);
-    }
+    executeWithCaptcha(async (token) => {
+      setSendingCode(true);
+      try {
+        await sendPasswordResetCode({ hcaptcha_token: token });
+        message.success("验证码已发送至你的邮箱");
+        startCountdown();
+        setStep(1);
+      } catch (err) {
+        const error = err as AxiosError<ApiError>;
+        if (error.response?.status === 429) message.error("发送过于频繁，请等待 60 秒后再试");
+        else message.error(error.response?.data?.error_description || "发送失败，请稍后重试");
+      } finally {
+        setSendingCode(false);
+      }
+    });
   };
 
   const onFinish = async (values: { verify_code: string; new_password: string }) => {
-    if (!hcaptchaToken) {
-      message.warning("请先完成人机验证");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await resetPassword({ verify_code: values.verify_code, new_password: values.new_password, hcaptcha_token: hcaptchaToken });
-      message.success("密码修改成功");
-      handleClose();
-    } catch (err) {
-      captchaRef.current?.reset();
-      setHcaptchaToken("");
-      const error = err as AxiosError<ApiError>;
-      if (error.response?.status === 400) message.error("验证码无效或已过期，请重新发送");
-      else message.error(error.response?.data?.error_description || "重置失败，请稍后重试");
-    } finally {
-      setSubmitting(false);
-    }
+    executeWithCaptcha(async (token) => {
+      setSubmitting(true);
+      try {
+        await resetPassword({ verify_code: values.verify_code, new_password: values.new_password, hcaptcha_token: token });
+        message.success("密码修改成功");
+        handleClose();
+      } catch (err) {
+        captchaRef.current?.reset();
+        const error = err as AxiosError<ApiError>;
+        if (error.response?.status === 400) message.error("验证码无效或已过期，请重新发送");
+        else message.error(error.response?.data?.error_description || "重置失败，请稍后重试");
+      } finally {
+        setSubmitting(false);
+      }
+    });
   };
 
   return (
@@ -592,13 +609,6 @@ function PasswordModal({ open, onClose }: PasswordModalProps) {
               placeholder="请再次输入新密码"
             />
           </Form.Item>
-          <Form.Item style={{ marginBottom: 8 }}>
-            <HCaptchaWidget
-              ref={captchaRef}
-              onVerify={(token) => setHcaptchaToken(token)}
-              onExpire={() => setHcaptchaToken("")}
-            />
-          </Form.Item>
           <Space style={{ width: "100%", justifyContent: "flex-end" }}>
             <Button onClick={handleClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={submitting}>
@@ -607,6 +617,28 @@ function PasswordModal({ open, onClose }: PasswordModalProps) {
           </Space>
         </Form>
       )}
+
+      <HCaptchaWidget
+        ref={captchaRef}
+        size="invisible"
+        onVerify={async (token) => {
+          if (continuationRef.current) {
+            await continuationRef.current(token);
+            continuationRef.current = null;
+          }
+        }}
+        onError={() => {
+          message.error("人机验证失败");
+          continuationRef.current = null;
+          setSendingCode(false);
+          setSubmitting(false);
+        }}
+        onExpire={() => {
+          continuationRef.current = null;
+          setSendingCode(false);
+          setSubmitting(false);
+        }}
+      />
     </Modal>
   );
 }

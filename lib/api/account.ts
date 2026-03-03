@@ -50,9 +50,10 @@ export async function updateProfile(data: UpdateProfileRequest): Promise<User> {
   return res.data;
 }
 
-export async function sendPasswordResetCode(): Promise<MessageResponse> {
+export async function sendPasswordResetCode(data?: { hcaptcha_token?: string }): Promise<MessageResponse> {
   const res = await http.post<MessageResponse>(
-    "/api/v1/account/password/send-code"
+    "/api/v1/account/password/send-code",
+    data || {}
   );
   return res.data;
 }
@@ -97,9 +98,10 @@ export async function forgotPasswordReset(
   return res.data;
 }
 
-export async function sendOldEmailCode(): Promise<MessageResponse> {
+export async function sendOldEmailCode(data?: { hcaptcha_token?: string }): Promise<MessageResponse> {
   const res = await http.post<MessageResponse>(
-    "/api/v1/account/email/send-old-code"
+    "/api/v1/account/email/send-old-code",
+    data || {}
   );
   return res.data;
 }
