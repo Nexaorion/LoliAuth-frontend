@@ -23,6 +23,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [policyModal, setPolicyModal] = useState<"user" | "privacy" | null>(null);
+  const [readStatus, setReadStatus] = useState({ user: false, privacy: false });
   const [hcaptchaToken, setHcaptchaToken] = useState("");
   const captchaRef = useRef<HCaptchaWidgetRef>(null);
   const [form] = Form.useForm();
@@ -93,8 +94,18 @@ function LoginForm() {
     }
   };
 
-  const handleAgreePolicy = () => {
-    setPolicyModal(null);
+  const handleAgreePolicy = (type: "user" | "privacy") => {
+    const newStatus = { ...readStatus, [type]: true };
+    setReadStatus(newStatus);
+    
+    if (type === "user" && !newStatus.privacy) {
+      setPolicyModal("privacy");
+    } else if (type === "privacy" && !newStatus.user) {
+      setPolicyModal("user");
+    } else {
+      setPolicyModal(null);
+      form.setFieldsValue({ agreement: true });
+    }
   };
 
   return (
@@ -114,14 +125,14 @@ function LoginForm() {
         title="用户协议"
         open={policyModal === "user"}
         policyUrl="/policies/user-agreement.md"
-        onAgree={() => handleAgreePolicy()}
+        onAgree={() => handleAgreePolicy("user")}
         onCancel={() => setPolicyModal(null)}
       />
       <PolicyModal
         title="隐私政策"
         open={policyModal === "privacy"}
         policyUrl="/policies/privacy-policy.md"
-        onAgree={() => handleAgreePolicy()}
+        onAgree={() => handleAgreePolicy("privacy")}
         onCancel={() => setPolicyModal(null)}
       />
       <Form form={form} layout="vertical" onFinish={onFinish} autoComplete="off" requiredMark={false}>

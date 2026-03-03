@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const [countdown, setCountdown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [policyModal, setPolicyModal] = useState<"user" | "privacy" | null>(null);
+  const [readStatus, setReadStatus] = useState({ user: false, privacy: false });
   const [hcaptchaToken, setHcaptchaToken] = useState("");
   const captchaRef = useRef<HCaptchaWidgetRef>(null);
 
@@ -63,6 +64,7 @@ export default function RegisterPage() {
       message.success("验证码已发送，请查收邮箱");
       captchaRef.current?.reset();
       setHcaptchaToken("");
+      startCountdown();
     } catch (err) {
       captchaRef.current?.reset();
       setHcaptchaToken("");
@@ -115,8 +117,18 @@ export default function RegisterPage() {
     }
   };
 
-  const handleAgreePolicy = () => {
-    setPolicyModal(null);
+  const handleAgreePolicy = (type: "user" | "privacy") => {
+    const newStatus = { ...readStatus, [type]: true };
+    setReadStatus(newStatus);
+
+    if (type === "user" && !newStatus.privacy) {
+      setPolicyModal("privacy");
+    } else if (type === "privacy" && !newStatus.user) {
+      setPolicyModal("user");
+    } else {
+      setPolicyModal(null);
+      form.setFieldsValue({ agreement: true });
+    }
   };
 
   return (
@@ -136,14 +148,14 @@ export default function RegisterPage() {
         title="用户协议"
         open={policyModal === "user"}
         policyUrl="/policies/user-agreement.md"
-        onAgree={() => handleAgreePolicy()}
+        onAgree={() => handleAgreePolicy("user")}
         onCancel={() => setPolicyModal(null)}
       />
       <PolicyModal
         title="隐私政策"
         open={policyModal === "privacy"}
         policyUrl="/policies/privacy-policy.md"
-        onAgree={() => handleAgreePolicy()}
+        onAgree={() => handleAgreePolicy("privacy")}
         onCancel={() => setPolicyModal(null)}
       />
       <Form form={form} layout="vertical" onFinish={onFinish} autoComplete="off" requiredMark={false}>

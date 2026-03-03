@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       captchaRef.current?.execute();
-    } catch (e) {
+    } catch {
       pendingEmailRef.current = null;
       setLoading(false);
       message.error("人机验证初始化失败，请稍后重试");

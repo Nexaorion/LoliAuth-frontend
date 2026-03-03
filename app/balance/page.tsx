@@ -11,6 +11,7 @@ import {
   Form,
   InputNumber,
   Input,
+  Checkbox,
   message,
   Spin,
   Empty,
@@ -71,6 +72,9 @@ export default function BalancePage() {
   const [notActivated, setNotActivated] = useState(false);
   const [activating, setActivating] = useState(false);
   const [activateModalOpen, setActivateModalOpen] = useState(false);
+  const [policyModal, setPolicyModal] = useState<"balance" | "crossBorder" | null>(null);
+  const [readStatus, setReadStatus] = useState({ balance: false, crossBorder: false });
+  const [activationForm] = Form.useForm();
 
   // Deactivate
   const [deactivating, setDeactivating] = useState(false);
@@ -163,6 +167,12 @@ export default function BalancePage() {
   }, [wallet?.activated, fetchTransactions, fetchWithdrawals]);
 
   const handleActivate = async () => {
+    try {
+      await activationForm.validateFields();
+    } catch {
+      return;
+    }
+
     setActivating(true);
     try {
       const w = await activateWallet();
@@ -174,6 +184,20 @@ export default function BalancePage() {
       message.error("开通失败，请稍后再试");
     } finally {
       setActivating(false);
+    }
+  };
+
+  const handleAgreePolicy = (type: "balance" | "crossBorder") => {
+    const newStatus = { ...readStatus, [type]: true };
+    setReadStatus(newStatus);
+
+    if (type === "balance" && !newStatus.crossBorder) {
+      setPolicyModal("crossBorder");
+    } else if (type === "crossBorder" && !newStatus.balance) {
+      setPolicyModal("balance");
+    } else {
+      setPolicyModal(null);
+      activationForm.setFieldsValue({ agreement: true });
     }
   };
 
@@ -414,15 +438,85 @@ export default function BalancePage() {
           </Empty>
         </div>
 
-        <PolicyModal
-          title="开通余额服务"
+        <Modal
+          title="开通余额钱包"
           open={activateModalOpen}
-          policyUrl="/policies/balance-agreement.md"
-          agreeText="同意并开通"
-          agreeLoading={activating}
-          onAgree={handleActivate}
           onCancel={() => setActivateModalOpen(false)}
-        />
+          footer={null}
+        >
+          <p>
+            开通余额钱包功能，您将可以使用余额进行充值、提现、支付等操作。
+          </p>
+
+          <PolicyModal
+            title="余额服务协议"
+            open={policyModal === "balance"}
+            policyUrl="/policies/balance-agreement.md"
+            onAgree={() => handleAgreePolicy("balance")}
+            onCancel={() => setPolicyModal(null)}
+          />
+          <PolicyModal
+            title="跨境数据传输协议"
+            open={policyModal === "crossBorder"}
+            policyUrl="/policies/cross-border-data-agreement.md"
+            onAgree={() => handleAgreePolicy("crossBorder")}
+            onCancel={() => setPolicyModal(null)}
+          />
+
+          <Form
+            form={activationForm}
+            onFinish={handleActivate}
+            layout="vertical"
+            style={{ marginTop: 24 }}
+          >
+            <Form.Item
+              name="agreement"
+              valuePropName="checked"
+              rules={[
+                {
+                  validator: (_, value) =>
+                    value
+                      ? Promise.resolve()
+                      : Promise.reject(new Error("请先同意相关协议")),
+                },
+              ]}
+            >
+              <Checkbox>
+                <span className="text-gray-600">
+                  我已阅读并同意
+                  <a
+                    className="text-[#7c3aed] hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPolicyModal("balance");
+                    }}
+                    style={{ marginLeft: 4, cursor: "pointer" }}
+                  >
+                    《余额服务协议》
+                  </a>
+                  和
+                  <a
+                    className="text-[#7c3aed] hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPolicyModal("crossBorder");
+                    }}
+                    style={{ marginLeft: 4, cursor: "pointer" }}
+                  >
+                    《跨境数据传输协议》
+                  </a>
+                </span>
+              </Checkbox>
+            </Form.Item>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
+              <Button onClick={() => setActivateModalOpen(false)}>取消</Button>
+              <Button type="primary" htmlType="submit" loading={activating}>
+                确认开通
+              </Button>
+            </div>
+          </Form>
+        </Modal>
       </AppLayout>
     );
   }
